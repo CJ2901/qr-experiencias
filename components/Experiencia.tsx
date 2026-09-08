@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import CartaManuscrita from './CartaManuscrita';
 import CarruselTema from './Carruseles';
+import Celebracion from './Celebracion';
+import Compartir from './Compartir';
+import Visor from './Visor';
 import type { Tema } from '@/lib/temas';
 
 export interface DatosPedido {
@@ -19,7 +22,6 @@ export interface DatosPedido {
   texto_boton: string;
   voz_url: string | null;
   cancion_url: string | null;
-  media_expira_en: string | null;
 }
 
 interface Props {
@@ -30,8 +32,6 @@ interface Props {
   /** URLs firmadas de la galeria. Vacio si la media ya se archivo. */
   fotos: string[];
   fotoFinal: string | null;
-  /** true cuando media_expira_en ya paso: se muestra el rescate. */
-  archivada: boolean;
 }
 
 const FRASES = [
@@ -44,13 +44,31 @@ const FRASES = [
 ];
 const TOTAL = FRASES.length;
 
-export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal, archivada }: Props) {
+/**
+ * El texto viejo por defecto en la base. Cuando un pedido todavia lo
+ * lleva, se muestra el nuevo: el boton ya no guarda nada, comparte.
+ * (Para los pedidos nuevos, cambia el default de pedidos.texto_boton.)
+ */
+const BOTON_VIEJO = 'Guardar este momento';
+const BOTON_COMPARTIR = 'Compartir este momento';
+
+/**
+ * La pagina del regalo.
+ *
+ * NOTA SOBRE LA CADUCIDAD: aqui ya no se avisa de cuando se archivan las
+ * fotos. Es informacion de la compra, no del regalo, y leerla justo
+ * despues de la carta rompia el momento. Vive donde corresponde: en
+ * "Mis pedidos", que es del comprador.
+ */
+export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: Props) {
   const [toques, setToques] = useState(0);
   const [abierto, setAbierto] = useState(false);
   const [pop, setPop] = useState(false);
   const [sobreAbierto, setSobreAbierto] = useState(false);
   const [escribiendo, setEscribiendo] = useState(false);
-  const [guardado, setGuardado] = useState(false);
+  const [celebrando, setCelebrando] = useState(false);
+  /** Que fotos ve el visor y por cual abre. null = cerrado. */
+  const [visor, setVisor] = useState<{ fotos: string[]; idx: number } | null>(null);
 
   const nivel = Math.min(100, (toques / TOTAL) * 100);
 
@@ -77,8 +95,9 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal, ar
   function abrirSobre() {
     if (sobreAbierto) return;
     setSobreAbierto(true);
-    // la carta tarda 1.1 s en aparecer (transicion CSS); escribimos despues
-    setTimeout(() => setEscribiendo(true), 1250);
+    setCelebrando(true);
+    // la solapa tarda .75 s en abrirse (transicion CSS); escribimos despues
+    setTimeout(() => setEscribiendo(true), 1000);
   }
 
   return (
@@ -123,23 +142,32 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal, ar
             </svg>
           )}
 
-          <CarruselTema tipo={tema.carrusel} fotos={fotos} />
+          <CarruselTema
+            tipo={tema.carrusel}
+            fotos={fotos}
+            onAbrir={(idx) => setVisor({ fotos, idx })}
+          />
 
           {/* --------------------------------------- sobre y carta */}
-          <div
-            className="sobre"
-            data-abierto={sobreAbierto}
-            onClick={abrirSobre}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') abrirSobre(); }}
-            aria-label="Abrir la carta"
-          >
-            <div className="solapa" />
-            <div className="lacre">
-              <Lacre tema={tema.id} />
-              <div className="pista-sobre">Hay algo dentro para ti</div>
-            </div>
+          <div className="sobre" data-abierto={sobreAbierto}>
+            <button
+              className="sobre-cerrado"
+              onClick={abrirSobre}
+              aria-label="Abrir la carta"
+              aria-expanded={sobreAbierto}
+            >
+              <span className="sobre-cuerpo" aria-hidden />
+              <span className="sobre-bolsa" aria-hidden />
+              <span className="sobre-solapa" aria-hidden />
+              <span className="sobre-lacre">
+                <Lacre tema={tema.id} />
+              </span>
+              <span className="sobre-pista">Hay algo dentro para ti</span>
+            </button>
+
+            {celebrando && (
+              <Celebracion tema={tema.id} onFin={() => setCelebrando(false)} />
+            )}
 
             <div className="carta">
               {pedido.emojis && <div className="carta-emojis">{pedido.emojis}</div>}
@@ -169,33 +197,37 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal, ar
             <p className="fin" dangerouslySetInnerHTML={{ __html: pedido.frase_brindis }} />
           )}
 
-          {fotoFinal && <span className="foto foto-final" style={{ backgroundImage: `url(${fotoFinal})` }} />}
+          {fotoFinal && (
+            <button
+              className="marco-final"
+              onClick={() => setVisor({ fotos: [fotoFinal], idx: 0 })}
+              aria-label="Ver la foto completa"
+            >
+              <span className="foto foto-final" style={{ backgroundImage: `url(${fotoFinal})` }} />
+              <span className="marco-pie">toca para verla completa</span>
+            </button>
+          )}
 
           {pedido.frase_final && (
             <p className="gracias" dangerouslySetInnerHTML={{ __html: pedido.frase_final }} />
           )}
 
-          <button className="guardar" onClick={() => setGuardado(true)}>
-            {guardado ? 'Guardado ♥' : pedido.texto_boton}
-          </button>
-
-          {(archivada || pedido.media_expira_en) && (
-            <div className="caduca">
-              <b>
-                {archivada
-                  ? 'Las fotos en alta de este regalo están archivadas'
-                  : `Las fotos en alta se archivan el ${new Date(pedido.media_expira_en!).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })}`}
-              </b>
-              <span>
-                La carta y la canción se quedan siempre. Puedes recuperar los archivos originales
-                en alta resolución cuando quieras.
-              </span>
-            </div>
-          )}
+          <Compartir
+            etiqueta={
+              !pedido.texto_boton || pedido.texto_boton === BOTON_VIEJO
+                ? BOTON_COMPARTIR
+                : pedido.texto_boton
+            }
+            titulo={pedido.pareja || pedido.destinatario}
+          />
 
           <p className="pie-final">Hecho con amor</p>
         </div>
       </div>
+
+      {visor && (
+        <Visor fotos={visor.fotos} inicial={visor.idx} onCerrar={() => setVisor(null)} />
+      )}
     </div>
   );
 }

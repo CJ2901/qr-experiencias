@@ -1,9 +1,14 @@
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requerirAdminPagina } from '@/lib/admin-server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Panel() {
+  // Cinturon ademas del middleware: si manana alguien toca el matcher,
+  // el panel no se abre solo.
+  await requerirAdminPagina();
+
   const sb = supabaseAdmin();
   const { data: pedidos } = await sb
     .from('pedidos')
@@ -24,7 +29,12 @@ export default async function Panel() {
       <table>
         <thead>
           <tr>
-            <th>Para</th><th>Ruta</th><th>Tema</th><th>Estado</th><th>Vence</th>
+            <th>Para</th>
+            <th>Ruta</th>
+            <th>Tema</th>
+            <th>Estado</th>
+            <th>Vence</th>
+            <th className="px-4 py-2">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -42,6 +52,15 @@ export default async function Panel() {
                 {p.media_expira_en
                   ? new Date(p.media_expira_en).toLocaleDateString('es-PE')
                   : 'nunca'}
+              </td>
+              {/* Aquí insertamos la nueva celda en la fila existente */}
+              <td className="px-4 py-2">
+                <Link 
+                  href={`/admin/editar/${p.slug}`} 
+                  className="text-blue-500 hover:underline"
+                >
+                  Editar
+                </Link>
               </td>
             </tr>
           ))}

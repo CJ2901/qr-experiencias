@@ -78,6 +78,18 @@ export function esTemaValido(v: unknown): v is TemaId {
   return typeof v === 'string' && v in TEMAS;
 }
 
+/**
+ * Resuelve el tema de una fila de Supabase, que llega tipada como `any`.
+ *
+ * Indexar TEMAS con un `any` es error bajo strict, y el guard no lo estrecha
+ * cuando la expresion se escribe en linea. Aqui el parametro entra como
+ * `unknown`, el guard si lo estrecha, y quien llama recibe un Tema y punto.
+ * Usa SIEMPRE esto en vez de TEMAS[...] a mano.
+ */
+export function temaDe(valor: unknown): Tema {
+  return TEMAS[esTemaValido(valor) ? valor : 'correspondencia'];
+}
+
 /** Meses de vigencia por plan. `siempre` no vence. */
 export const RETENCIONES: Record<string, number | null> = {
   '6m': 6,

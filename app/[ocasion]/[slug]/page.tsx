@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Experiencia, { type DatosPedido } from '@/components/Experiencia';
-import { supabasePublico, supabaseAdmin } from '@/lib/supabase';
-import { TEMAS, esTemaValido, type TemaId } from '@/lib/temas';
+import { supabasePublico } from '@/lib/supabase';
+import { firmarRuta, firmarRutas } from '@/lib/media';
+import { temaDe } from '@/lib/temas';
 import { cortarLineas } from '@/lib/wrap';
 
 /**
@@ -21,15 +22,6 @@ export const preferredRegion = 'iad1';
 export const dynamicParams = true;
 
 type Params = { params: Promise<{ ocasion: string; slug: string }> };
-
-/** Firma las rutas del bucket privado. La caducidad se implementa aqui. */
-async function firmar(rutas: string[], segundos = 60 * 60 * 6): Promise<string[]> {
-  if (!rutas.length) return [];
-  const sb = supabaseAdmin();
-  const { data, error } = await sb.storage.from('media').createSignedUrls(rutas, segundos);
-  if (error || !data) return [];
-  return data.map((d) => d.signedUrl).filter(Boolean) as string[];
-}
 
 async function traerPedido(ocasion: string, slug: string) {
   const sb = supabasePublico();
@@ -61,18 +53,15 @@ export default async function Pagina({ params }: Params) {
   const p = await traerPedido(ocasion, slug);
   if (!p) notFound();
 
-  const temaId: TemaId = esTemaValido(p.tema) ? p.tema : 'correspondencia';
-  const tema = TEMAS[temaId];
+  const tema = temaDe(p.tema);
 
   // El corte de renglones se hace aqui, no en el navegador: el ancho del
   // papel es fijo y cada pluma tiene su propio calibre.
   const lineas = cortarLineas(p.mensaje, tema.maxChars);
 
-  // Caducidad: la pagina nunca muere, solo pierde la alta resolucion.
-  const vencida = !!p.media_expira_en && new Date(p.media_expira_en) < new Date();
   const rutas: string[] = Array.isArray(p.fotos) ? p.fotos : [];
-  const fotos = await firmar(rutas);
-  const [fotoFinal] = p.foto_final ? await firmar([p.foto_final]) : [null];
+  const fotos = await firmarRutas(rutas);
+  const fotoFinal = await firmarRuta(p.foto_final);
 
   const datos: DatosPedido = {
     ocasion: p.ocasion,
@@ -88,7 +77,6 @@ export default async function Pagina({ params }: Params) {
     texto_boton: p.texto_boton,
     voz_url: p.voz_url,
     cancion_url: p.cancion_url,
-    media_expira_en: p.media_expira_en,
   };
 
   return (
@@ -101,7 +89,6 @@ export default async function Pagina({ params }: Params) {
         lineas={lineas}
         fotos={fotos}
         fotoFinal={fotoFinal ?? null}
-        archivada={vencida}
       />
     </>
   );

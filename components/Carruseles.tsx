@@ -7,27 +7,76 @@ interface Props {
   /** URLs ya firmadas por el servidor. Puede venir vacio (fotos archivadas). */
   fotos: string[];
   pies?: string[];
+  /** Abre el visor a pantalla completa en esa foto. */
+  onAbrir?: (indice: number) => void;
 }
 
 function fondo(url?: string) {
   return url ? { backgroundImage: `url(${url})` } : undefined;
 }
 
+/**
+ * Deslizar con el dedo.
+ *
+ * Antes solo se podia tocar, que en movil es el gesto equivocado: la mano
+ * ya viene entrenada para arrastrar. Se descarta el gesto si el
+ * movimiento es mas vertical que horizontal, para no robarle el scroll a
+ * la pagina.
+ */
+function useDeslizar(alPasar: (paso: number) => void) {
+  const desde = useRef<{ x: number; y: number } | null>(null);
+  const huboDeslizamiento = useRef(false);
+
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      desde.current = { x: e.clientX, y: e.clientY };
+      huboDeslizamiento.current = false;
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const p = desde.current;
+      desde.current = null;
+      if (!p) return;
+      const dx = e.clientX - p.x;
+      const dy = e.clientY - p.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+      huboDeslizamiento.current = true;
+      alPasar(dx < 0 ? 1 : -1);
+    },
+    // Tras un deslizamiento el navegador dispara ademas un click sobre la
+    // foto. Sin tragarlo, deslizar abriria el visor sin querer.
+    onClickCapture: (e: React.MouseEvent) => {
+      if (huboDeslizamiento.current) {
+        e.stopPropagation();
+        e.preventDefault();
+        huboDeslizamiento.current = false;
+      }
+    },
+  };
+}
+
+/** Toca la foto activa → se abre. Toca otra → se enfoca. */
+function alTocar(k: number, idx: number, setIdx: (n: number) => void, onAbrir?: (i: number) => void) {
+  if (k === idx) onAbrir?.(k);
+  else setIdx(k);
+}
+
 /* ------------------------------------------------------ A · baraja */
-export function Baraja({ fotos, pies = [] }: Props) {
+export function Baraja({ fotos, pies = [], onAbrir }: Props) {
   const [idx, setIdx] = useState(0);
   const n = fotos.length;
+  const deslizar = useDeslizar((paso) => setIdx((v) => (v + paso + n) % n));
+
   return (
     <>
-      <div className="baraja">
+      <div className="baraja" {...deslizar}>
         {fotos.map((src, k) => {
           const d = (k - idx + n) % n;
           return (
             <button
               key={k}
               className="carta-f"
-              onClick={() => setIdx((v) => (v + 1) % n)}
-              aria-label={`Foto ${k + 1} de ${n}`}
+              onClick={() => (d === 0 ? onAbrir?.(k) : setIdx((v) => (v + 1) % n))}
+              aria-label={d === 0 ? `Ampliar foto ${k + 1}` : `Foto ${k + 1} de ${n}`}
               style={{
                 zIndex: n - d,
                 opacity: d > 2 ? 0 : 1,
@@ -42,17 +91,21 @@ export function Baraja({ fotos, pies = [] }: Props) {
           );
         })}
       </div>
-      <p className="pista">toca la foto de arriba para pasar</p>
+      <p className="pista">desliza para pasar · toca para ampliar</p>
     </>
   );
 }
 
 /* --------------------------------------------------- C · coverflow */
-export function Coverflow({ fotos }: Props) {
+export function Coverflow({ fotos, onAbrir }: Props) {
   const [idx, setIdx] = useState(Math.min(1, fotos.length - 1));
+  const deslizar = useDeslizar((paso) =>
+    setIdx((v) => Math.min(fotos.length - 1, Math.max(0, v + paso)))
+  );
+
   return (
     <>
-      <div className="coverflow">
+      <div className="coverflow" {...deslizar}>
         {fotos.map((src, k) => {
           const d = k - idx;
           const ad = Math.abs(d);
@@ -60,8 +113,8 @@ export function Coverflow({ fotos }: Props) {
             <button
               key={k}
               className="cv"
-              onClick={() => setIdx(k)}
-              aria-label={`Foto ${k + 1} de ${fotos.length}`}
+              onClick={() => alTocar(k, idx, setIdx, onAbrir)}
+              aria-label={k === idx ? `Ampliar foto ${k + 1}` : `Foto ${k + 1} de ${fotos.length}`}
               style={{
                 zIndex: 10 - ad,
                 opacity: ad > 2 ? 0 : 1 - ad * 0.22,
@@ -80,16 +133,21 @@ export function Coverflow({ fotos }: Props) {
           <span key={k} data-on={k === idx} onClick={() => setIdx(k)} />
         ))}
       </div>
+      <p className="pista">desliza para pasar · toca para ampliar</p>
     </>
   );
 }
 
 /* ----------------------------------------------------- D · abanico */
-export function Abanico({ fotos }: Props) {
+export function Abanico({ fotos, onAbrir }: Props) {
   const [idx, setIdx] = useState(Math.min(1, fotos.length - 1));
+  const deslizar = useDeslizar((paso) =>
+    setIdx((v) => Math.min(fotos.length - 1, Math.max(0, v + paso)))
+  );
+
   return (
     <>
-      <div className="abanico">
+      <div className="abanico" {...deslizar}>
         {fotos.map((src, k) => {
           const d = k - idx;
           return (
@@ -97,8 +155,8 @@ export function Abanico({ fotos }: Props) {
               key={k}
               className="fc"
               data-on={k === idx}
-              onClick={() => setIdx(k)}
-              aria-label={`Foto ${k + 1} de ${fotos.length}`}
+              onClick={() => alTocar(k, idx, setIdx, onAbrir)}
+              aria-label={k === idx ? `Ampliar foto ${k + 1}` : `Foto ${k + 1} de ${fotos.length}`}
               style={{
                 zIndex: k === idx ? 10 : 5 - Math.abs(d),
                 transform:
@@ -111,13 +169,13 @@ export function Abanico({ fotos }: Props) {
           );
         })}
       </div>
-      <p className="pista">toca una carta del abanico</p>
+      <p className="pista">desliza el abanico · toca para ampliar</p>
     </>
   );
 }
 
 /* -------------------------------------------------------- E · tira */
-export function Tira({ fotos }: Props) {
+export function Tira({ fotos, onAbrir }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(0);
   const ancho = 100 / Math.max(fotos.length, 1);
@@ -133,14 +191,15 @@ export function Tira({ fotos }: Props) {
     return () => el.removeEventListener('scroll', onScroll);
   }, [ancho]);
 
+  // La tira ya se desliza sola: es scroll nativo con scroll-snap.
   return (
     <>
       <div className="tira" ref={ref}>
         {fotos.map((src, k) => (
-          <div className="ts" key={k}>
+          <button className="ts" key={k} onClick={() => onAbrir?.(k)} aria-label={`Ampliar foto ${k + 1}`}>
             <span className="foto" style={fondo(src)} />
             <b>{String(k + 1).padStart(2, '0')}</b>
-          </div>
+          </button>
         ))}
       </div>
       <div className="riel">
@@ -151,10 +210,15 @@ export function Tira({ fotos }: Props) {
 }
 
 /* --------------------------------------------------------- selector */
-export default function CarruselTema({ tipo, fotos, pies }: Props & { tipo: Carrusel }) {
+export default function CarruselTema({
+  tipo,
+  fotos,
+  pies,
+  onAbrir,
+}: Props & { tipo: Carrusel }) {
   if (!fotos.length) return null;
-  if (tipo === 'coverflow') return <Coverflow fotos={fotos} />;
-  if (tipo === 'abanico') return <Abanico fotos={fotos} />;
-  if (tipo === 'tira') return <Tira fotos={fotos} />;
-  return <Baraja fotos={fotos} pies={pies} />;
+  if (tipo === 'coverflow') return <Coverflow fotos={fotos} onAbrir={onAbrir} />;
+  if (tipo === 'abanico') return <Abanico fotos={fotos} onAbrir={onAbrir} />;
+  if (tipo === 'tira') return <Tira fotos={fotos} onAbrir={onAbrir} />;
+  return <Baraja fotos={fotos} pies={pies} onAbrir={onAbrir} />;
 }
