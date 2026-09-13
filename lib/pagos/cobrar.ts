@@ -77,17 +77,14 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
       token: solicitud.token,
       metodoId: solicitud.metodoId,
       cuotas: solicitud.cuotas,
-      emisorId: solicitud.emisorId,
       // En prueba va el correo del usuario de prueba: con el correo dueno
       // de la cuenta, MP nunca aprueba (nadie puede pagarse a si mismo).
       emailPagador: correoPagador,
       identificacion: solicitud.identificacion,
-      metadata: {
-        usuario_id: comprador.id,
-        plantilla: plantilla.slug,
-        ocasion: solicitud.ocasion,
-        intento,
-      },
+      // La Orders API no tiene `metadata`. Lo que antes viajaba ahi
+      // (usuario, plantilla, ocasion) ya esta en `intentos_pago`, asi que
+      // basta con mandar su id: el webhook lo lee de vuelta y reconstruye.
+      referencia: intento,
       claveIdempotencia: `${comprador.id}:${solicitud.token}`,
     });
   } catch (e) {

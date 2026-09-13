@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { supabaseAdmin } from '@/lib/supabase';
 import { nuevoSlug } from '@/lib/slug';
 import { consultar } from '@/lib/pagos/pasarela';
-import { buscarPedidoPorPago, sincronizarPedido } from '@/lib/pagos/repositorio';
+import { buscarIntento, buscarPedidoPorPago, sincronizarPedido } from '@/lib/pagos/repositorio';
 
 /**
  * POST /api/mp/webhook
@@ -13,8 +13,14 @@ import { buscarPedidoPorPago, sincronizarPedido } from '@/lib/pagos/repositorio'
  * acreditan minutos despues. Sin esto, esos pedidos se pierden.
  *
  * Configuralo en Mercado Pago > Tus integraciones > Webhooks:
- *   https://tudominio.pe/api/mp/webhook   (evento: payment)
+ *   https://tudominio.pe/api/mp/webhook
  * Copia la clave secreta que te dan y ponla en MP_WEBHOOK_SECRET.
+ *
+ * QUE EVENTO MARCAR: desde la migracion a la Orders API (set. 2026) el id
+ * que llega y el que guardamos en pedidos.mp_payment_id es el de la ORDEN
+ * (ORD…), no el del pago de adentro. Marca el evento de ordenes; si solo
+ * hubiera "payment", `consultar` no encontrara nada y esta ruta devolvera
+ * 200 sin hacer dano, pero los pagos diferidos no se acreditaran solos.
  *
  * MIENTRAS MP_WEBHOOK_SECRET ESTE VACIA esta ruta rechaza todo con 401.
  * Es deliberado: sin firma, cualquiera marca pedidos como pagados con un
@@ -78,23 +84,28 @@ export async function POST(req: NextRequest) {
   }
 
   // Caso raro pero real: el navegador murio antes de crear la fila.
-  // La reconstruimos desde la metadata que mandamos al cobrar.
-  if (pago.clase === 'aprobado' && pago.metadata.usuario_id && pago.metadata.plantilla) {
+  // Antes se reconstruia desde la `metadata` del pago; la Orders API no
+  // tiene ese campo, asi que lo que viaja es el id del intento en
+  // `external_reference` y los datos se releen de `intentos_pago`. Sale
+  // mejor: la bitacora es nuestra y no depende de que MP nos devuelva
+  // intacto lo que le mandamos.
+  const intento = await buscarIntento(pago.referencia);
+  if (pago.clase === 'aprobado' && intento?.comprador_id && intento.plantilla) {
     const sb = supabaseAdmin();
     const { data: plantilla } = await sb
       .from('plantillas')
       .select('tema, precio_centavos, moneda')
-      .eq('slug', pago.metadata.plantilla)
+      .eq('slug', intento.plantilla)
       .maybeSingle();
 
     await sb.from('pedidos').upsert(
       {
-        ocasion: pago.metadata.ocasion || 'cumpleanos',
+        ocasion: intento.ocasion || 'cumpleanos',
         slug: nuevoSlug(),
         tema: plantilla?.tema ?? 'correspondencia',
         estado: 'pendiente_datos',
-        comprador_id: pago.metadata.usuario_id,
-        comprador_email: pago.emailPagador ?? null,
+        comprador_id: intento.comprador_id,
+        comprador_email: intento.comprador_email ?? pago.emailPagador ?? null,
         precio_centavos: plantilla?.precio_centavos ?? null,
         moneda: plantilla?.moneda ?? 'PEN',
         mp_payment_id: pago.id,

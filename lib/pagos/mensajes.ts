@@ -12,10 +12,28 @@
 
 export type ClaseDeEstado = 'aprobado' | 'pendiente' | 'rechazado';
 
-/** approved | authorized → cobrado. in_process | pending → aun no. El resto, no. */
+/**
+ * De que se cobro o no, en tres palabras.
+ *
+ * Hay que entender DOS vocabularios porque conviven: el de /v1/payments
+ * (approved, in_process, rejected) y el de la Orders API (processed,
+ * action_required, failed), que es la que usamos desde set. 2026. Un
+ * estado desconocido cae en 'rechazado' a proposito: es el unico lado
+ * seguro en el que equivocarse — deja al comprador reintentando en vez de
+ * darle un pedido por el que nadie pago.
+ */
+const APROBADOS = new Set(['approved', 'authorized', 'processed']);
+const PENDIENTES_ = new Set([
+  'in_process',
+  'pending',
+  'processing',
+  'action_required',
+  'created',
+]);
+
 export function clasificar(estado?: string | null): ClaseDeEstado {
-  if (estado === 'approved' || estado === 'authorized') return 'aprobado';
-  if (estado === 'in_process' || estado === 'pending') return 'pendiente';
+  if (APROBADOS.has(estado ?? '')) return 'aprobado';
+  if (PENDIENTES_.has(estado ?? '')) return 'pendiente';
   return 'rechazado';
 }
 

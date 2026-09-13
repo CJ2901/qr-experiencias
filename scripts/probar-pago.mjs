@@ -92,8 +92,9 @@ async function cobrarCon(email) {
 /* ---------- candidatos ---------- */
 const candidatos = [
   [PAYER_ENV, 'el de tu .env (usuario de prueba)'],
-  ['test_user_no_existe_9988776655@testuser.com', 'usuario de prueba inventado'],
+  ['test_user_3290986102609607253@testuser.com', 'usuario de prueba inventado'],
   ['comprador.prueba.qr@gmail.com', 'correo normal, ajeno a la cuenta'],
+  ['christian.cj2901@gmail.com', 'tu correo de comprador real'],
   ['christian.magallanes.j@gmail.com', 'tu correo de comprador real'],
 ].filter(([e]) => e);
 

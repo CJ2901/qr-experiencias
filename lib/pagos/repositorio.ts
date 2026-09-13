@@ -139,6 +139,27 @@ export async function registrarPedidoPagado(
   return { id: String(data.id), estado: String(data.estado) };
 }
 
+/**
+ * Lee un intento por su id. Lo usa el webhook: como la Orders API no
+ * tiene `metadata`, el id del intento viaja en `external_reference` y de
+ * aqui salen el comprador, la plantilla y la ocasion para reconstruir un
+ * pedido que el navegador no alcanzo a crear.
+ */
+export async function buscarIntento(id: string) {
+  if (!id) return null;
+  const { data } = await supabaseAdmin()
+    .from('intentos_pago')
+    .select('comprador_id, comprador_email, plantilla, ocasion')
+    .eq('id', id)
+    .maybeSingle();
+  return data as {
+    comprador_id: string | null;
+    comprador_email: string | null;
+    plantilla: string | null;
+    ocasion: string | null;
+  } | null;
+}
+
 export async function buscarPedidoPorPago(mpPaymentId: string) {
   const { data } = await supabaseAdmin()
     .from('pedidos')

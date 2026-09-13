@@ -170,11 +170,16 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
             )}
 
             <div className="carta">
-              {pedido.emojis && <div className="carta-emojis">{pedido.emojis}</div>}
-              <CartaManuscrita lineas={lineas} size={tema.manoSize} escribir={escribiendo} />
-              {pedido.frase_capitulo && (
-                <div className="capitulo" dangerouslySetInnerHTML={{ __html: pedido.frase_capitulo }} />
-              )}
+              {/* .carta abre y cierra (max-height); .carta-hoja es el papel.
+                  Separarlos es lo que permite animar la hoja saliendo del
+                  sobre sin pelearse con la transicion de apertura. */}
+              <div className="carta-hoja">
+                {pedido.emojis && <div className="carta-emojis">{pedido.emojis}</div>}
+                <CartaManuscrita lineas={lineas} size={tema.manoSize} escribir={escribiendo} />
+                {pedido.frase_capitulo && (
+                  <div className="capitulo" dangerouslySetInnerHTML={{ __html: pedido.frase_capitulo }} />
+                )}
+              </div>
             </div>
           </div>
 

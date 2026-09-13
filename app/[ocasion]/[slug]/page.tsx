@@ -81,7 +81,14 @@ export default async function Pagina({ params }: Params) {
 
   return (
     <>
-      {/* solo las fuentes de este tema, no las de los cuatro */}
+      {/* Solo las fuentes de este tema, no las de los cuatro. Los
+          preconnect importan mas de lo que parece: la carta no se puede
+          MEDIR hasta que la manuscrita cargue (ver CartaManuscrita), asi
+          que cada ida y vuelta a Google se ve como un salto en el papel.
+          Si Google Fonts no llega, --hand cae a una manuscrita del
+          sistema: la carta sigue pareciendo escrita a mano. */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={tema.fuentes} />
       <Experiencia
         pedido={datos}

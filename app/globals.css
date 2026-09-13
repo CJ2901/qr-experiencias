@@ -24,7 +24,8 @@ button { font: inherit; color: inherit; }
   --bg:#F2EDE3; --paper:#F8F2E5; --ink:#232019; --acc:#7B2D26; --acc2:#B08B4F; --mut:#8E8271;
   --disp:"EB Garamond", Georgia, serif;
   --txt:"Lora", Georgia, serif;
-  --hand:"Homemade Apple", cursive;
+  --hand:"Homemade Apple", "Segoe Script", "Bradley Hand", "Snell Roundhand", cursive;
+  --tinta:#3A2E1F;
   --lienzo:
     repeating-linear-gradient(0deg, rgba(140,120,90,.045) 0 1px, transparent 1px 4px),
     radial-gradient(120% 60% at 50% 0%, #F7F2E8, transparent 60%);
@@ -33,7 +34,8 @@ button { font: inherit; color: inherit; }
   --bg:#0D1226; --paper:#F8F1E0; --ink:#2A2233; --acc:#E8A94E; --acc2:#C97F86; --mut:#8B8AA6;
   --disp:"Fraunces", Georgia, serif;
   --txt:"Karla", system-ui, sans-serif;
-  --hand:"Caveat", cursive;
+  --hand:"Caveat", "Segoe Script", "Bradley Hand", "Snell Roundhand", cursive;
+  --tinta:#33284A;
   --lienzo:
     radial-gradient(160px 120px at 50% 3%, rgba(232,169,78,.34), transparent 72%),
     radial-gradient(280px 220px at 82% 32%, rgba(201,127,134,.12), transparent 70%);
@@ -42,14 +44,16 @@ button { font: inherit; color: inherit; }
   --bg:#F3F1E9; --paper:#FBF8F0; --ink:#2C3128; --acc:#6B7A5E; --acc2:#C08A8A; --mut:#8B8D7E;
   --disp:"Marcellus", Georgia, serif;
   --txt:"Karla", system-ui, sans-serif;
-  --hand:"Shadows Into Light", cursive;
+  --hand:"Shadows Into Light", "Segoe Script", "Bradley Hand", "Snell Roundhand", cursive;
+  --tinta:#2C3128;
   --lienzo: radial-gradient(120% 50% at 50% 100%, rgba(107,122,94,.09), transparent 60%);
 }
 [data-tema="editorial"] {
   --bg:#FBFAF8; --paper:#FFFFFF; --ink:#14120F; --acc:#FF5A45; --acc2:#14120F; --mut:#8A857C;
   --disp:"Archivo", Helvetica, Arial, sans-serif;
   --txt:"Karla", system-ui, sans-serif;
-  --hand:"Nothing You Could Do", cursive;
+  --hand:"Nothing You Could Do", "Segoe Script", "Bradley Hand", "Snell Roundhand", cursive;
+  --tinta:#14120F;
   --lienzo: none;
 }
 
@@ -202,11 +206,78 @@ button { font: inherit; color: inherit; }
   letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: var(--ink); }
 
 /* --- la carta --- */
-.carta { padding: 4px 2px 0; opacity: 0; max-height: 0; overflow: hidden;
+/* Un pliego de papel, no un parrafo suelto: la hoja tiene grosor, sombra
+   corta, un pliegue de haber estado doblada dentro del sobre y un grado
+   de giro. Los renglones NO se pintan aqui: los dibuja CartaManuscrita
+   dentro del SVG, que es la unica forma de que caigan bajo cada linea
+   base a cualquier ancho de pantalla. */
+.carta { opacity: 0; max-height: 0; overflow: hidden;
   transition: opacity .9s ease .25s; }
 .sobre[data-abierto="true"] .carta { opacity: 1; max-height: 4000px; overflow: visible; }
-.carta-emojis { text-align: center; font-size: 18px; letter-spacing: .5em; margin-bottom: 16px; opacity: .85; }
+
+.carta-hoja {
+  position: relative; padding: 26px 18px 24px; border-radius: 2px;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgba(60,45,25,.16), 0 12px 34px rgba(60,45,25,.17);
+  transform: rotate(-.5deg);
+}
+/* El pliegue horizontal: venia doblada dentro del sobre.
+   Va MUY tenue y difuminado en los extremos a proposito. Una linea
+   pareja y opaca cruzando un renglon no se lee como un pliegue: se lee
+   como un tachado, y la carta parece corregida. */
+.carta-hoja::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 37%; height: 1px;
+  background: linear-gradient(90deg, transparent,
+              rgba(90,70,40,.07) 14%, rgba(90,70,40,.07) 86%, transparent);
+  box-shadow: 0 1px 0 rgba(255,255,255,.4);
+  pointer-events: none;
+}
+/* el papel no es plano: luz arriba, sombra en el canto de abajo */
+.carta-hoja::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(177deg, rgba(255,255,255,.55), transparent 20%,
+              transparent 72%, rgba(90,70,40,.06));
+}
+.sobre[data-abierto="true"] .carta-hoja {
+  animation: sale-del-sobre .95s cubic-bezier(.2,.8,.25,1) both;
+}
+@keyframes sale-del-sobre {
+  from { opacity: 0; transform: translateY(-30px) rotate(1.8deg) scale(.965); }
+  to   { opacity: 1; transform: translateY(0) rotate(-.5deg) scale(1); }
+}
+
+.carta-emojis { text-align: center; font-size: 18px; letter-spacing: .5em;
+  margin: 0 0 14px; opacity: .85; }
 [data-tema="editorial"] .carta-emojis { display: none; }
+
+/* --- la escritura --- */
+/* Sin esta regla el <text class="hw"> hereda la serif del body y la carta
+   se ve mecanografiada. Es la unica linea que ata el SVG al tema. */
+.hw-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hw { font-family: var(--hand); fill: var(--tinta, var(--ink)); }
+/* Los renglones los dibuja CartaManuscrita dentro del SVG. No hay linea
+   de margen: con el texto centrado, un margen a la izquierda solo marcaria
+   un borde que el texto no usa. */
+.regla { stroke: rgba(70,90,120,.14); stroke-width: .55; }
+.nib { pointer-events: none; transition: opacity .3s ease; }
+
+/* --- la despedida --- */
+.capitulo { margin: 20px 2px 0; text-align: right; font-family: var(--hand);
+  font-size: 15px; line-height: 1.75; color: var(--acc); opacity: .95; }
+
+/* --- variantes por tema --- */
+[data-tema="luz-de-vela"] .carta-hoja { border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+[data-tema="herbario"] .carta-hoja { border-radius: 1px; transform: rotate(.35deg); }
+[data-tema="herbario"] .regla { stroke: rgba(107,122,94,.16); }
+/* Editorial no tiene papel ni renglones: es la version sobria a proposito. */
+[data-tema="editorial"] .carta-hoja { padding: 0; background: none;
+  box-shadow: none; transform: none; }
+[data-tema="editorial"] .carta-hoja::before,
+[data-tema="editorial"] .carta-hoja::after,
+[data-tema="editorial"] .regla { display: none; }
+[data-tema="editorial"] .capitulo { text-align: left; font-family: var(--txt);
+  font-size: 13px; letter-spacing: .02em; color: var(--ink); }
 
 /* ------------------------------------------------------- celebracion */
 .celebra { position: absolute; left: 50%; top: 45%; width: 0; height: 0;

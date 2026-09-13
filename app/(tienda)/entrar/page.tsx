@@ -1,5 +1,6 @@
 import { supabaseSesion, usuarioActual } from '@/lib/supabase-server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 /**
  * Magic link. Sin contrasena: el cliente compra una vez al ano, no va a
@@ -18,11 +19,15 @@ export default async function Entrar({ searchParams }: Props) {
     const dest = String(formData.get('destino') ?? '/mis-pedidos');
     if (!email) redirect(`/entrar?error=1&destino=${encodeURIComponent(dest)}`);
 
+    // El destino va en cookie, no en la URL del enlace: ver auth/callback/route.ts.
+    const store = await cookies();
+    store.set('destino_login', dest, { path: '/', maxAge: 600, httpOnly: true, sameSite: 'lax' });
+
     const sb = await supabaseSesion();
     const base = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '');
     const { error: e } = await sb.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${base}/auth/callback?destino=${encodeURIComponent(dest)}` },
+      options: { emailRedirectTo: `${base}/auth/callback` },
     });
     redirect(
       e
