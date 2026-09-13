@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabaseSesion } from '@/lib/supabase-server';
+import { baseDelSitio } from '@/lib/sitio';
 
 /**
  * Cambia el codigo del magic link por una sesion con cookie.
@@ -18,7 +19,7 @@ import { supabaseSesion } from '@/lib/supabase-server';
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? url.origin).replace(/\/+$/, '');
+  const base = (await baseDelSitio()) || url.origin;
 
   const store = await cookies();
   const destino = store.get('destino_login')?.value || '/mis-pedidos';
@@ -28,6 +29,11 @@ export async function GET(req: NextRequest) {
     const sb = await supabaseSesion();
     const { error } = await sb.auth.exchangeCodeForSession(code);
     if (!error) return NextResponse.redirect(`${base}${destino}`);
+    console.error('[callback] no se pudo canjear el código', {
+      status: error.status,
+      code: error.code,
+      mensaje: error.message,
+    });
   }
-  return NextResponse.redirect(`${base}/entrar?error=1`);
+  return NextResponse.redirect(`${base}/entrar?error=envio`);
 }

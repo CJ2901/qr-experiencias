@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { requerir } from './entorno';
 
 /**
  * Cliente de Supabase con la sesion del usuario leida de las cookies.
@@ -10,8 +11,8 @@ import { cookies } from 'next/headers';
 export async function supabaseSesion() {
   const store = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    requerir('NEXT_PUBLIC_SUPABASE_URL'),
+    requerir('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     {
       cookies: {
         getAll: () => store.getAll(),
