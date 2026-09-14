@@ -34,6 +34,10 @@ export async function enviarPago(cuerpo: Record<string, unknown>): Promise<Respu
   try {
     r = await fetch('/api/pagar', {
       method: 'POST',
+      // `same-origin` ya es el valor por defecto, pero aqui viaja la cookie
+      // de sesion y de eso depende que el cobro no muera en 401: dejarlo
+      // escrito evita que alguien lo cambie sin saber lo que cuesta.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cuerpo),
     });

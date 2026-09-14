@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { usuarioActual } from '@/lib/supabase-server';
+import { cookiesDeSesion, usuarioActual } from '@/lib/supabase-server';
 import { procesarCobro } from '@/lib/pagos/cobrar';
 import { errores, esErrorPago } from '@/lib/pagos/errores';
 
@@ -25,7 +25,12 @@ export const preferredRegion = 'iad1';
 export async function POST(req: NextRequest) {
   try {
     const usuario = await usuarioActual();
-    if (!usuario) throw errores.sinSesion();
+    if (!usuario) {
+      // `sesion sin_sesion {}` no decia nada. Con esto se sabe si la cookie
+      // ni siquiera llegó o si llegó y Supabase la rechazó.
+      console.error('[/api/pagar] sin sesión · cookies sb-* recibidas:', await cookiesDeSesion());
+      throw errores.sinSesion();
+    }
 
     const crudo = await req.json().catch(() => null);
     const cobro = await procesarCobro(crudo, { id: usuario.id, email: usuario.email });

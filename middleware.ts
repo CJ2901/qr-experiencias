@@ -63,6 +63,27 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
+/**
+ * OJO CON /api/pagar.
+ *
+ * Estaba fuera de esta lista, y ese era un agujero de verdad: el trabajo
+ * numero 1 de aqui arriba es refrescar la cookie de sesion, y la unica
+ * peticion que mueve dinero quedaba sin refrescar. Si el token vencia
+ * justo en el POST del cobro, no habia nada que lo renovara y
+ * usuarioActual() devolvia null -> 401 sin_sesion, con el comprador
+ * mirando un formulario que acababa de funcionar.
+ *
+ * No se pone /api/:path* entero a proposito: el webhook de Mercado Pago
+ * (/api/mp/webhook) no trae cookies de nadie y se autentica por firma
+ * HMAC, y /api/subir y /api/pedidos van por API_KEY. Pasarlos por aqui
+ * seria trabajo inutil en cada llamada.
+ */
 export const config = {
-  matcher: ['/admin/:path*', '/mis-pedidos/:path*', '/pedido/:path*', '/checkout/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/mis-pedidos/:path*',
+    '/pedido/:path*',
+    '/checkout/:path*',
+    '/api/pagar',
+  ],
 };
