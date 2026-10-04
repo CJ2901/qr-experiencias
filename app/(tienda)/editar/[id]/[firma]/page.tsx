@@ -10,6 +10,8 @@ import { baseDelSitio } from '@/lib/sitio';
 import FormularioGuiado from '@/components/tienda/FormularioGuiado';
 import BotonRevisarPago from '@/components/tienda/BotonRevisarPago';
 import TarjetaQR from '@/components/tienda/TarjetaQR';
+import { aTextoEditable } from '@/lib/texto';
+import { configFormulario } from '@/lib/formularios';
 
 /**
  * /editar/<pedidoId>/<firma> — la pantalla del comprador, sin cuenta.
@@ -70,8 +72,7 @@ export default async function Editar({ params }: Params) {
           Ver cómo quedó
         </Link>
         <p className="mx-auto mt-8 max-w-md text-xs leading-relaxed text-stone-500">
-          ¿Se te pasó un error? Escríbenos con este código y lo corregimos:{' '}
-          <span className="font-mono text-stone-700">{pedido.slug}</span>
+          Código de tu regalo: <span className="font-mono text-stone-700">{pedido.slug}</span>
         </p>
       </main>
     );
@@ -116,17 +117,18 @@ export default async function Editar({ params }: Params) {
 
       <FormularioGuiado
         acceso={acceso}
+        config={configFormulario(tema.id, pedido.ocasion)}
         maxChars={tema.maxChars}
         limites={limites}
         previews={previews}
         inicial={{
           destinatario: pedido.destinatario ?? '',
-          frase_principal: pedido.frase_principal ?? '',
+          frase_principal: aTextoEditable(pedido.frase_principal),
           fecha_texto: pedido.fecha_texto ?? '',
           mensaje: pedido.mensaje ?? '',
-          frase_capitulo: pedido.frase_capitulo ?? '',
-          frase_brindis: pedido.frase_brindis ?? '',
-          frase_final: pedido.frase_final ?? '',
+          frase_capitulo: aTextoEditable(pedido.frase_capitulo),
+          frase_brindis: aTextoEditable(pedido.frase_brindis),
+          frase_final: aTextoEditable(pedido.frase_final),
           fotos: rutas,
           foto_final: pedido.foto_final ?? null,
         }}

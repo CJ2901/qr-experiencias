@@ -3,6 +3,7 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { accesoValido, type Acceso } from '@/lib/acceso';
 import { avisarPublicado } from '@/lib/notificaciones';
+import { aHtmlSeguro } from '@/lib/texto';
 
 /**
  * Acciones del comprador sobre SU pedido, sin cuenta.
@@ -46,15 +47,34 @@ const LIMITES: Record<string, number> = {
 const NO_AUTORIZADO = { ok: false as const, error: 'Este enlace no es válido.' };
 const CERRADO = { ok: false as const, error: 'Este regalo ya fue publicado y no admite cambios.' };
 
+/**
+ * Las frases se pintan con innerHTML en la pagina del regalo (para permitir
+ * <br>). Sin escaparlas, un comprador podria guardar `<img onerror=...>` y
+ * ese codigo correria en el navegador de quien abra el regalo — o del admin.
+ */
+const CON_HTML = new Set(['frase_principal', 'frase_capitulo', 'frase_brindis', 'frase_final']);
+
+/** Ruta de la foto dentro de la carpeta de ESTE pedido (y nada de "..") */
+const esPropia = (id: string, r: unknown): r is string =>
+  typeof r === 'string' && r.startsWith(`pedidos/${id}/`) && !r.includes('..');
+
+/**
+ * Convencion de nombres para no perder el original al recortar:
+ *   pedidos/<id>/1696…-foto.jpg            original (reducido, sin EXIF)
+ *   pedidos/<id>/1696…-foto.jpg~r1697….jpg recorte de ese original
+ * Al volver a ajustar se parte SIEMPRE del original, no del recorte: asi
+ * se puede alejar el zoom otra vez sin perder calidad.
+ */
+const original = (ruta: string) => ruta.split('~r')[0];
+
 /** Lista blanca + limites. Las rutas de fotos solo pueden ser de ESTE pedido. */
 function limpiar(id: string, c: Borrador): Record<string, unknown> {
   const fila: Record<string, unknown> = {};
   for (const [k, max] of Object.entries(LIMITES)) {
     const v = (c as Record<string, unknown>)[k];
-    if (typeof v === 'string') fila[k] = v.slice(0, max);
+    if (typeof v === 'string') fila[k] = CON_HTML.has(k) ? aHtmlSeguro(v.slice(0, max)) : v.slice(0, max);
   }
-  const propia = (r: unknown): r is string =>
-    typeof r === 'string' && r.startsWith(`pedidos/${id}/`) && !r.includes('..');
+  const propia = (r: unknown): r is string => esPropia(id, r);
   if (Array.isArray(c.fotos)) fila.fotos = c.fotos.filter(propia).slice(0, 12);
   if (c.foto_final === null || propia(c.foto_final)) fila.foto_final = c.foto_final;
   return fila;
@@ -78,8 +98,11 @@ export async function guardarBorrador(acceso: Acceso, campos: Borrador): Promise
   return { ok: true };
 }
 
-/** URL firmada para subir una foto directo a Storage (no pasa por Vercel). */
-export async function urlDeSubida(acceso: Acceso, nombre: string) {
+/**
+ * URL firmada para subir una foto directo a Storage (no pasa por Vercel).
+ * Con `recorteDe`, la ruta queda ligada a ese original (ver `original`).
+ */
+export async function urlDeSubida(acceso: Acceso, nombre: string, recorteDe?: string) {
   if (!accesoValido(acceso)) return NO_AUTORIZADO;
 
   const sb = supabaseAdmin();
@@ -91,12 +114,31 @@ export async function urlDeSubida(acceso: Acceso, nombre: string) {
   if (!pedido) return NO_AUTORIZADO;
   if (pedido.estado !== 'pendiente_datos') return CERRADO;
 
-  const limpio = String(nombre).toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-40);
-  const ruta = `pedidos/${acceso.id}/${Date.now()}-${limpio}`;
+  let ruta: string;
+  if (recorteDe !== undefined) {
+    if (!esPropia(acceso.id, recorteDe)) return NO_AUTORIZADO;
+    ruta = `${original(recorteDe)}~r${Date.now()}.jpg`;
+  } else {
+    const limpio = String(nombre).toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-40);
+    ruta = `pedidos/${acceso.id}/${Date.now()}-${limpio}`;
+  }
 
   const { data, error } = await sb.storage.from('media').createSignedUploadUrl(ruta);
   if (error) return { ok: false as const, error: 'No se pudo preparar la subida.' };
   return { ok: true as const, ruta, token: data.token, signedUrl: data.signedUrl };
+}
+
+/**
+ * URL firmada (10 min) del ORIGINAL de una foto, para volver a encuadrarla.
+ * El bucket es privado: sin esto el navegador no puede leerla.
+ */
+export async function urlDelOriginal(acceso: Acceso, ruta: string) {
+  if (!accesoValido(acceso) || !esPropia(acceso.id, ruta)) return NO_AUTORIZADO;
+  const { data, error } = await supabaseAdmin()
+    .storage.from('media')
+    .createSignedUrl(original(ruta), 600);
+  if (error || !data) return { ok: false as const, error: 'No se pudo abrir la foto original.' };
+  return { ok: true as const, url: data.signedUrl };
 }
 
 /**
