@@ -90,18 +90,6 @@ export function temaDe(valor: unknown): Tema {
   return TEMAS[esTemaValido(valor) ? valor : 'correspondencia'];
 }
 
-/** Meses de vigencia por plan. `siempre` no vence. */
-export const RETENCIONES: Record<string, number | null> = {
-  '6m': 6,
-  '12m': 12,
-  '24m': 24,
-  siempre: null,
-};
-
-export function calcularVencimiento(retencion: string): string | null {
-  const meses = RETENCIONES[retencion];
-  if (meses == null) return null;
-  const d = new Date();
-  d.setMonth(d.getMonth() + meses);
-  return d.toISOString();
-}
+/* Retencion: unica de 5 anos, contada desde la publicacion. La fija el
+   trigger `fijar_vencimiento` en Postgres (migracion 006), no la app, para
+   que ningun camino de alta (tienda, Make, panel) pueda olvidarla. */

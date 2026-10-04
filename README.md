@@ -81,7 +81,6 @@ content-type: application/json
   "frase_brindis": "…",
   "frase_final": "…",
   "fotos": ["pedidos/g7k2mqx91a/1.jpg", "pedidos/g7k2mqx91a/2.jpg"],
-  "retencion": "12m",
   "comprador_email": "quien@compro.com"
 }
 ```
@@ -98,16 +97,12 @@ El endpoint hace **upsert sobre `(ocasion, slug)`**: si Make reintenta el webhoo
 
 ## Cómo funciona la caducidad
 
-El bucket es privado. La página no guarda URLs públicas: firma las rutas en cada render, con seis horas de vigencia. Eso es lo que hace que la caducidad sea real sin borrar nada.
+Retención única: **5 años desde que el pedido se publica**. Después, borrado definitivo.
 
-- `media_expira_en` se calcula al crear el pedido, según `retencion` (`6m`, `12m`, `24m`, `siempre`).
-- La vista `por_vencer` lista lo que vence en 30 días → Make manda el WhatsApp de upsell.
-- `marcar_vencidos()` marca `archivada_en` al pasar la fecha.
-- La página **nunca muere**: al vencer se pierde la descarga en alta, no la galería. El cliente ve el aviso de rescate y un botón.
-
-El borrado físico va 30 días después, en un segundo job. La recuperación convierte mucho mejor que la prevención: la gente paga cuando ya siente la pérdida.
-
-Ojo con el costo: mil pedidos de 30 MB son 30 GB. **Caducar no te ahorra dinero de servidor** — sirve para crear el momento de escasez que hace vendible el upsell. Comunícalo con honestidad.
+- El bucket `media` es privado; la página firma las rutas en cada render.
+- `media_expira_en` la fija Postgres (trigger `fijar_vencimiento`, migración 006) al pasar a `listo`. La app no la calcula.
+- `/api/cron/purgar` corre a diario (Vercel Cron, 03:00 Lima): borra los archivos por la API de Storage, verifica que no quede nada y llama a `cerrar_purga()`, que vacía el contenido de la fila y registra el borrado en `eliminaciones`. Se conservan precio, pago y email como respaldo contable.
+- Requiere `CRON_SECRET` en Vercel.
 
 ---
 

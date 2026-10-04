@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { esTemaValido, calcularVencimiento } from '@/lib/temas';
+import { esTemaValido } from '@/lib/temas';
 import { nuevoSlug } from '@/lib/slug';
 
 /**
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
   if (!oc) return NextResponse.json({ error: 'ocasion desconocida' }, { status: 400 });
 
   const tema = esTemaValido(body.tema) ? body.tema : oc.tema_default;
-  const retencion = typeof body.retencion === 'string' ? body.retencion : '12m';
 
   // idempotencia: si Make reintenta el webhook, no creamos dos paginas
   const slug = typeof body.slug === 'string' && body.slug ? body.slug : nuevoSlug();
@@ -68,8 +67,7 @@ export async function POST(req: NextRequest) {
     cancion_url: body.cancion_url ?? null,
     comprador_email: body.comprador_email ?? null,
     comprador_tel: body.comprador_tel ?? null,
-    retencion,
-    media_expira_en: calcularVencimiento(retencion),
+    // retencion y media_expira_en: los fija Postgres (5 anos desde publicar)
   };
 
   const { data, error } = await sb

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Experiencia, { type DatosPedido } from '@/components/Experiencia';
-import { supabasePublico } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { firmarRuta, firmarRutas } from '@/lib/media';
 import { temaDe } from '@/lib/temas';
 import { cortarLineas } from '@/lib/wrap';
@@ -24,10 +24,15 @@ export const dynamicParams = true;
 type Params = { params: Promise<{ ocasion: string; slug: string }> };
 
 async function traerPedido(ocasion: string, slug: string) {
-  const sb = supabasePublico();
-  const { data } = await sb
+  // Server Component: la service_role nunca llega al navegador. El filtro
+  // estado='listo' ya no lo pone RLS (la lectura anonima se cerro en la
+  // migracion 006): lo pone esta consulta. Solo las columnas que se pintan;
+  // nunca comprador_*, mp_*, precio ni ids internos.
+  const { data } = await supabaseAdmin()
     .from('pedidos')
-    .select('*')
+    .select(
+      'ocasion, slug, tema, destinatario, pareja, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, emojis, texto_boton, fotos, foto_final, voz_url, cancion_url'
+    )
     .eq('ocasion', ocasion)
     .eq('slug', slug)
     .eq('estado', 'listo')

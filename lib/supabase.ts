@@ -6,14 +6,8 @@ import { requerir } from './entorno';
    error aparece en cualquier ruta que lo importe, lejos de la causa.
    (Antes tambien habia un `const URL` aqui, que tapaba el URL global.) */
 
-/** Solo lee filas con estado='listo' (lo impone RLS). Seguro en el cliente. */
-export function supabasePublico() {
-  return createClient(
-    requerir('NEXT_PUBLIC_SUPABASE_URL'),
-    requerir('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    { auth: { persistSession: false } }
-  );
-}
+/* supabasePublico() se elimino (migracion 006): la anon key ya no lee
+   pedidos. La pagina del regalo lee desde el servidor con supabaseAdmin. */
 
 /** Salta RLS. SOLO en rutas de servidor: nunca importar desde un componente 'use client'. */
 export function supabaseAdmin() {

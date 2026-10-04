@@ -7,8 +7,9 @@ import BotonRevisarPago from '@/components/tienda/BotonRevisarPago';
 export const dynamic = 'force-dynamic';
 
 /**
- * El seguro contra la pestana cerrada. RLS hace el trabajo: la consulta
- * no filtra por comprador, la politica ya lo hace.
+ * El seguro contra la pestana cerrada. Filtra por comprador aqui Y en RLS
+ * ("cliente ve sus pedidos"): si una politica se abre por error, esta
+ * pagina sigue mostrando solo lo propio.
  */
 
 const ETIQUETA: Record<string, { texto: string; clase: string }> = {
@@ -27,6 +28,7 @@ export default async function MisPedidos() {
   const { data: pedidos } = await sb
     .from('pedidos')
     .select('id, ocasion, slug, tema, estado, destinatario, precio_centavos, creado_en, mp_payment_id')
+    .eq('comprador_id', usuario.id) // defensa en profundidad: no depender solo de RLS
     .order('creado_en', { ascending: false });
 
   const pendientes = (pedidos ?? []).filter((p) => p.estado === 'pendiente_datos');
