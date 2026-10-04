@@ -108,6 +108,8 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
       headers: { 'content-type': blob.type || 'image/jpeg' },
     });
     if (!res.ok) {
+      // El motivo real (p. ej. "Invalid key") queda en la consola para diagnosticar.
+      console.error('[subida]', res.status, await res.text().catch(() => ''));
       setError('No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.');
       return null;
     }

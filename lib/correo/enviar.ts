@@ -5,7 +5,7 @@
  * false, deja el motivo en los logs y quien llama decide si reintenta.
  *
  *   RESEND_API_KEY     obligatoria para enviar (sin ella solo se registra)
- *   CORREO_REMITENTE   "Dile.pe <hola@envios.meliydani.com>" por defecto
+ *   CORREO_REMITENTE   "Dile <hola@envios.meliydani.com>" por defecto
  *   CORREO_RESPUESTA   opcional: a donde llegan las respuestas del cliente
  */
 
@@ -23,7 +23,10 @@ export interface Correo {
   adjuntos?: Adjunto[];
 }
 
-const REMITENTE_POR_DEFECTO = 'Dile.pe <hola@envios.meliydani.com>';
+// Nombre SIN ".pe": un nombre que parece dominio y no coincide con el
+// dominio real del remitente (meliydani.com) es una senal clasica de
+// suplantacion para los filtros de spam. Cuando exista dile.pe, puede volver.
+const REMITENTE_POR_DEFECTO = 'Dile <hola@envios.meliydani.com>';
 
 export async function enviarCorreo(c: Correo): Promise<boolean> {
   const clave = process.env.RESEND_API_KEY;

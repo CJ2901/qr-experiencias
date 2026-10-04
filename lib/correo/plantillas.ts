@@ -9,8 +9,14 @@ import { MARCA } from '@/lib/marca';
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function marco(contenido: string, pie: string): string {
-  return `<!doctype html><html><body style="margin:0;background:#f5f5f4;font-family:Helvetica,Arial,sans-serif;color:#292524">
+/**
+ * `lang="es"`: sin el, Gmail creia que el correo estaba en ingles (y lo
+ * ofrecia traducir). El preheader es la linea gris que se ve en la bandeja
+ * junto al asunto; si falta, Gmail muestra el primer texto que encuentre.
+ */
+function marco(contenido: string, pie: string, preheader = ''): string {
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body style="margin:0;background:#f5f5f4;font-family:Helvetica,Arial,sans-serif;color:#292524">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:32px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden">
@@ -34,7 +40,8 @@ export function correoEnlace(d: { url: string; plantilla: string }) {
 <p style="margin:14px 0 0;font-size:15px;line-height:1.6;color:#44403c">Compraste la plantilla <strong>${esc(d.plantilla)}</strong>. Con este enlace escribes la carta y subes tus fotos, a tu ritmo: se guarda solo.</p>
 ${boton(d.url, 'Escribir mi dedicatoria')}
 <p style="margin:0;font-size:13px;line-height:1.6;color:#78716c">Este enlace es personal: quien lo tenga puede editar tu regalo hasta que lo publiques. No lo reenvíes.</p>`,
-    `Si el botón no funciona, copia esta dirección en tu navegador:<br>${esc(d.url)}`
+    `Si el botón no funciona, copia esta dirección en tu navegador:<br>${esc(d.url)}`,
+    'Tu pago se confirmó. Escribe la carta y sube tus fotos cuando quieras.'
   );
   const texto = `Ya está pagado. Escribe tu dedicatoria aquí:\n${d.url}\n\nEste enlace es personal: no lo reenvíes.`;
   return { asunto, html, texto };
@@ -51,7 +58,8 @@ export function correoPublicado(d: { url: string; urlQr: string; destinatario: s
 </td></tr></table>
 ${boton(d.url, 'Ver el regalo')}
 <p style="margin:0;font-size:13px;line-height:1.6;color:#78716c">Adjuntamos el QR en alta calidad para imprimir. El enlace funciona durante 5 años.</p>`,
-    `Enlace del regalo:<br>${esc(d.url)}`
+    `Enlace del regalo:<br>${esc(d.url)}`,
+    'Tu QR está listo para imprimir o compartir.'
   );
   const texto = `El regalo para ${para} ya está listo.\n\nEnlace: ${d.url}\n\nAdjuntamos el QR para imprimir. Funciona durante 5 años.`;
   return { asunto, html, texto };

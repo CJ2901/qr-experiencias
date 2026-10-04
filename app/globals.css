@@ -16,7 +16,11 @@ body {
   font-family: var(--txt, system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
 }
-button { font: inherit; color: inherit; }
+/* En @layer base y no suelto: una regla fuera de capa le gana a TODAS las
+   utilidades de Tailwind (que viven en @layer utilities), y un boton con
+   `text-stone-900` dentro de un contenedor `text-white` salia blanco sobre
+   blanco (el "Usar este encuadre" del recortador). */
+@layer base { button { font: inherit; color: inherit; } }
 :focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
 
 /* ---------------------------------------------------------------- tokens */

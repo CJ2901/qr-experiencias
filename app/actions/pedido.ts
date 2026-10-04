@@ -60,12 +60,16 @@ const esPropia = (id: string, r: unknown): r is string =>
 
 /**
  * Convencion de nombres para no perder el original al recortar:
- *   pedidos/<id>/1696…-foto.jpg            original (reducido, sin EXIF)
- *   pedidos/<id>/1696…-foto.jpg~r1697….jpg recorte de ese original
+ *   pedidos/<id>/1696…-foto.jpg              original (reducido, sin EXIF)
+ *   pedidos/<id>/1696…-foto.jpg__r1697….jpg  recorte de ese original
+ * OJO: Supabase Storage rechaza con 400 ("Invalid key") nombres con
+ * caracteres como "~". El separador es "__r": los originales nunca llevan
+ * "_" porque su nombre pasa por el limpiador de abajo.
+ *
  * Al volver a ajustar se parte SIEMPRE del original, no del recorte: asi
  * se puede alejar el zoom otra vez sin perder calidad.
  */
-const original = (ruta: string) => ruta.split('~r')[0];
+const original = (ruta: string) => ruta.split('__r')[0];
 
 /** Lista blanca + limites. Las rutas de fotos solo pueden ser de ESTE pedido. */
 function limpiar(id: string, c: Borrador): Record<string, unknown> {
@@ -117,7 +121,7 @@ export async function urlDeSubida(acceso: Acceso, nombre: string, recorteDe?: st
   let ruta: string;
   if (recorteDe !== undefined) {
     if (!esPropia(acceso.id, recorteDe)) return NO_AUTORIZADO;
-    ruta = `${original(recorteDe)}~r${Date.now()}.jpg`;
+    ruta = `${original(recorteDe)}__r${Date.now()}.jpg`;
   } else {
     const limpio = String(nombre).toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-40);
     ruta = `pedidos/${acceso.id}/${Date.now()}-${limpio}`;
