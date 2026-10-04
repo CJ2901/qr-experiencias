@@ -6,12 +6,16 @@
  *     monto viajara en el cuerpo, cualquiera compra con `curl` a S/ 1.
  *  2. Valida la ocasion contra la lista, no contra la base: descubrir
  *     que la ocasion no existe DESPUES de cobrar es el peor momento.
+ *  3. Exige el correo DOS veces y que coincidan. Sin cuentas, el correo es
+ *     la unica forma de devolverle el enlace al comprador: un typo aqui es
+ *     un regalo pagado que nadie puede editar.
  */
 
 import { errores } from './errores';
 import { esOcasionValida, OCASION_POR_DEFECTO } from '@/lib/ocasiones';
 
-export type MetodoPago = 'tarjeta' | 'yape';
+/** `simulado` solo existe en prueba con PAGOS_SIMULADOS=1 (ver cobrar.ts). */
+export type MetodoPago = 'tarjeta' | 'yape' | 'simulado';
 
 export interface SolicitudPago {
   metodo: MetodoPago;
@@ -25,7 +29,11 @@ export interface SolicitudPago {
   emisorId?: string;
   emailPagador?: string;
   identificacion?: { type: string; number: string };
+  /** El del comprador, ya validado y en minusculas. A el le llegan los correos. */
+  email: string;
 }
+
+const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const SLUG = /^[a-z0-9-]{2,40}$/;
 
@@ -41,11 +49,19 @@ export function leerSolicitud(crudo: unknown): SolicitudPago {
   const b = (crudo ?? {}) as Record<string, unknown>;
   const recibidos = Object.keys(b);
 
-  const metodo: MetodoPago = b.metodo === 'yape' ? 'yape' : 'tarjeta';
+  const metodo: MetodoPago =
+    b.metodo === 'yape' ? 'yape' : b.metodo === 'simulado' ? 'simulado' : 'tarjeta';
+
+  const email = texto(b.email)?.toLowerCase();
+  const confirmacion = texto(b.email_confirmacion)?.toLowerCase();
+  if (!email || !CORREO.test(email) || email !== confirmacion) {
+    throw errores.correoInvalido();
+  }
 
   const plantilla = texto(b.plantilla);
-  const token = texto(b.token);
-  const metodoId = metodo === 'yape' ? 'yape' : texto(b.payment_method_id);
+  const token = metodo === 'simulado' ? 'simulado' : texto(b.token);
+  const metodoId =
+    metodo === 'yape' ? 'yape' : metodo === 'simulado' ? 'simulado' : texto(b.payment_method_id);
 
   const faltan: string[] = [];
   if (!plantilla) faltan.push('plantilla');
@@ -63,7 +79,7 @@ export function leerSolicitud(crudo: unknown): SolicitudPago {
   const numDoc = texto(ident.number);
 
   // Yape es debito: cuotas siempre 1, lo mande el navegador o no.
-  const cuotas = metodo === 'yape' ? 1 : Math.max(1, Number(b.installments) || 1);
+  const cuotas = metodo === 'tarjeta' ? Math.max(1, Number(b.installments) || 1) : 1;
 
   return {
     metodo,
@@ -72,8 +88,9 @@ export function leerSolicitud(crudo: unknown): SolicitudPago {
     token: token!,
     metodoId: metodoId!,
     cuotas,
-    emisorId: metodo === 'yape' ? undefined : texto(b.issuer_id),
+    emisorId: metodo === 'tarjeta' ? texto(b.issuer_id) : undefined,
     emailPagador: texto(pagador.email),
     identificacion: tipoDoc && numDoc ? { type: tipoDoc, number: numDoc } : undefined,
+    email,
   };
 }

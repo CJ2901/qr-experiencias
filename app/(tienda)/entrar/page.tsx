@@ -39,13 +39,13 @@ function codigoDe(e: { status?: number; code?: string; message?: string }): stri
 type Props = { searchParams: Promise<{ destino?: string; enviado?: string; error?: string }> };
 
 export default async function Entrar({ searchParams }: Props) {
-  const { destino = '/mis-pedidos', enviado, error } = await searchParams;
+  const { destino = '/admin', enviado, error } = await searchParams;
   if (await usuarioActual()) redirect(destino);
 
   async function enviarEnlace(formData: FormData) {
     'use server';
     const email = String(formData.get('email') ?? '').trim();
-    const dest = String(formData.get('destino') ?? '/mis-pedidos');
+    const dest = String(formData.get('destino') ?? '/admin');
     if (!email) redirect(`/entrar?error=correo&destino=${encodeURIComponent(dest)}`);
 
     // El destino va en cookie, no en la URL del enlace: ver auth/callback/route.ts.

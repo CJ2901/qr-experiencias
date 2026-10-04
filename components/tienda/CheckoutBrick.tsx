@@ -29,14 +29,13 @@ interface DatosBrick {
 }
 
 interface Props {
-  plantilla: string;
-  ocasion: string;
+  /** plantilla, ocasion y el correo dos veces: viajan tal cual al servidor. */
+  datos: { plantilla: string; ocasion: string; email: string; email_confirmacion: string };
   /** Solo para pintar el Brick. El cobro real usa el precio del servidor. */
   montoSoles: number;
-  email: string;
 }
 
-export default function CheckoutBrick({ plantilla, ocasion, montoSoles, email }: Props) {
+export default function CheckoutBrick({ datos, montoSoles }: Props) {
   const router = useRouter();
   const [aviso, setAviso] = useState<Aviso | null>(null);
   // Cambiar esta clave vuelve a montar el Brick desde cero. Sin esto, un
@@ -47,7 +46,7 @@ export default function CheckoutBrick({ plantilla, ocasion, montoSoles, email }:
   async function onSubmit({ formData }: DatosBrick): Promise<void> {
     setAviso({ tono: 'info', texto: 'Procesando el pago. No cierres esta ventana.' });
 
-    const r = await enviarPago({ ...formData, metodo: 'tarjeta', plantilla, ocasion });
+    const r = await enviarPago({ ...formData, ...datos, metodo: 'tarjeta' });
 
     if (!r.ok) {
       // OJO: el aviso se arma con `r`, no leyendo un estado que acabamos
@@ -66,14 +65,14 @@ export default function CheckoutBrick({ plantilla, ocasion, montoSoles, email }:
     }
 
     setAviso({ tono: 'exito', texto: r.mensaje, referencia: r.referencia });
-    router.push(r.siguiente ?? '/mis-pedidos');
+    if (r.siguiente) router.push(r.siguiente);
   }
 
   return (
     <div>
       <Payment
         key={intento}
-        initialization={{ amount: montoSoles, payer: { email } }}
+        initialization={{ amount: montoSoles, payer: { email: datos.email } }}
         customization={
           {
             visual: { style: { theme: 'default' } },

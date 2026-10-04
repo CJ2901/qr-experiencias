@@ -1,19 +1,23 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { traerPlantilla, soles } from '@/lib/catalogo';
+import { traerPlantilla, limitesDeFotos } from '@/lib/catalogo';
 import { TEMAS } from '@/lib/temas';
 import PreviewTema from '@/components/tienda/PreviewTema';
+import Precio from '@/components/tienda/Precio';
 
 export const revalidate = 600;
 
 type Params = { params: Promise<{ plantilla: string }> };
 
-const INCLUYE = [
-  'Carta escrita a mano que se dibuja sola al abrir el sobre',
-  'Hasta 4 fotos en el carrusel, más una foto de cierre',
-  'Tu página propia con enlace permanente',
-  'Código QR listo para imprimir',
-];
+/** Si la plantilla no trae su propia lista (columna `incluye`), va esta. */
+function incluyePorDefecto(maxFotos: number) {
+  return [
+    'Carta escrita a mano que se dibuja sola al abrir el sobre',
+    `Hasta ${maxFotos} fotos en el carrusel, más una foto de cierre`,
+    'Tu página propia, disponible durante 5 años',
+    'Código QR listo para imprimir, directo a tu correo',
+  ];
+}
 
 export default async function DetallePlantilla({ params }: Params) {
   const { plantilla: slug } = await params;
@@ -21,11 +25,12 @@ export default async function DetallePlantilla({ params }: Params) {
   if (!p) notFound();
 
   const tema = TEMAS[p.tema];
+  const incluye = p.incluye?.length ? p.incluye : incluyePorDefecto(limitesDeFotos(p).max);
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-12">
-      <Link href="/catalogo" className="text-sm text-stone-500 hover:text-stone-800">
-        &larr; Volver al catálogo
+      <Link href="/#dedicatorias" className="text-sm text-stone-500 hover:text-stone-800">
+        &larr; Ver todas las dedicatorias
       </Link>
 
       <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -66,26 +71,28 @@ export default async function DetallePlantilla({ params }: Params) {
         <aside className="lg:sticky lg:top-8 lg:self-start">
           <div className="rounded-2xl border border-stone-200 bg-white p-6">
             <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{p.nombre}</h1>
-            <p className="mt-2 text-sm leading-relaxed text-stone-600">{p.descripcion}</p>
-
-            <p className="mt-5 text-3xl font-semibold tabular-nums text-stone-900">
-              {soles(p.precio_centavos)}
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              {p.descripcion_larga || p.descripcion}
             </p>
-            <p className="mt-1 text-xs text-stone-500">Pago único. Sin suscripción.</p>
+
+            <div className="mt-5">
+              <Precio p={p} tamano="lg" />
+            </div>
+            <p className="mt-1 text-xs text-stone-500">Pago único. Tarjeta o Yape.</p>
 
             <Link
               href={`/checkout/${p.slug}`}
               className="mt-5 block rounded-xl bg-stone-900 px-5 py-3.5 text-center text-sm font-semibold text-white transition hover:bg-stone-700"
             >
-              Comprar y personalizar
+              Comprar
             </Link>
             <p className="mt-3 text-center text-xs leading-relaxed text-stone-500">
-              Primero pagas, después subes tus textos y fotos.
-              Si cierras la ventana, tu pedido te espera en «Mis pedidos».
+              Apenas pagas, escribes tu dedicatoria en la misma pantalla.
+              Te enviamos el enlace a tu correo para que vuelvas cuando quieras.
             </p>
 
             <ul className="mt-6 space-y-2.5 border-t border-stone-100 pt-5 text-sm text-stone-700">
-              {INCLUYE.map((i) => (
+              {incluye.map((i) => (
                 <li key={i} className="flex gap-2.5">
                   <span className="mt-[3px] text-rose-600">&#10003;</span>
                   <span className="leading-relaxed">{i}</span>

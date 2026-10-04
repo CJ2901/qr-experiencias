@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const base = (await baseDelSitio()) || url.origin;
 
   const store = await cookies();
-  const destino = store.get('destino_login')?.value || '/mis-pedidos';
+  const destino = store.get('destino_login')?.value || '/admin';
   store.delete('destino_login');
 
   if (code) {

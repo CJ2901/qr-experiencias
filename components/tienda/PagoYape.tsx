@@ -57,11 +57,9 @@ function cargarSdk(): Promise<void> {
 const soloDigitos = (s: string, max: number) => s.replace(/\D/g, '').slice(0, max);
 
 export default function PagoYape({
-  plantilla,
-  ocasion,
+  datos,
 }: {
-  plantilla: string;
-  ocasion: string;
+  datos: { plantilla: string; ocasion: string; email: string; email_confirmacion: string };
 }) {
   const router = useRouter();
   const [celular, setCelular] = useState('');
@@ -100,7 +98,7 @@ export default function PagoYape({
     }
 
     // --- 2 · el cobro, en el servidor. Mismo caso de uso que la tarjeta. ---
-    const r = await enviarPago({ metodo: 'yape', token, plantilla, ocasion });
+    const r = await enviarPago({ ...datos, metodo: 'yape', token });
     setCargando(false);
 
     if (!r.ok) {
@@ -115,16 +113,15 @@ export default function PagoYape({
     }
 
     setAviso({ tono: 'exito', texto: r.mensaje, referencia: r.referencia });
-    router.push(r.siguiente ?? '/mis-pedidos');
+    if (r.siguiente) router.push(r.siguiente);
   }
 
   return (
     <div>
-      <ol className="space-y-1.5 rounded-xl bg-stone-50 p-4 text-[13px] leading-relaxed text-stone-600">
-        <li>1. Abre Yape y entra a <strong>Menú → Aprobación de compras por internet</strong>.</li>
-        <li>2. Genera el código de 6 dígitos. Dura pocos minutos.</li>
-        <li>3. Escríbelo aquí junto con tu número.</li>
-      </ol>
+      <p className="rounded-xl bg-stone-50 p-4 text-[13px] leading-relaxed text-stone-600">
+        En Yape, entra a <strong>Menú → Aprobación de compras por internet</strong>, genera
+        el código de 6 dígitos y escríbelo aquí junto con tu número. El código dura pocos minutos.
+      </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block text-sm">

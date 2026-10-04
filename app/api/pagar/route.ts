@@ -1,20 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { cookiesDeSesion, usuarioActual } from '@/lib/supabase-server';
 import { procesarCobro } from '@/lib/pagos/cobrar';
-import { errores, esErrorPago } from '@/lib/pagos/errores';
+import { esErrorPago } from '@/lib/pagos/errores';
 
 /**
  * POST /api/pagar
  *
  * Esta ruta ya no sabe cobrar. Solo hace lo que le toca a un adaptador
- * HTTP: averiguar quien pide, delegar en el caso de uso y traducir el
- * resultado a un codigo de estado. La logica vive en lib/pagos/.
+ * HTTP: delegar en el caso de uso y traducir el resultado a un codigo de
+ * estado. La logica vive en lib/pagos/. No hay sesion: se compra sin
+ * cuenta y el comprador se identifica por el correo (escrito dos veces).
  *
  * Codigos que devuelve, y que significan para el navegador:
  *   200  cobrado o en revision   → seguir al siguiente paso
  *   402  el banco lo rechazo     → mostrar el motivo, dejar reintentar
- *   400  el formulario vino mal  → recargar
- *   401  sesion caida            → volver a entrar
+ *   400  el formulario vino mal  → recargar (o corregir el correo)
  *   502  Mercado Pago fallo      → no es culpa del comprador
  *   500  cobramos y no guardamos → caso grave, lleva codigo de reclamo
  */
@@ -24,16 +23,8 @@ export const preferredRegion = 'iad1';
 
 export async function POST(req: NextRequest) {
   try {
-    const usuario = await usuarioActual();
-    if (!usuario) {
-      // `sesion sin_sesion {}` no decia nada. Con esto se sabe si la cookie
-      // ni siquiera llegó o si llegó y Supabase la rechazó.
-      console.error('[/api/pagar] sin sesión · cookies sb-* recibidas:', await cookiesDeSesion());
-      throw errores.sinSesion();
-    }
-
     const crudo = await req.json().catch(() => null);
-    const cobro = await procesarCobro(crudo, { id: usuario.id, email: usuario.email });
+    const cobro = await procesarCobro(crudo);
 
     // 402 = "payment required": el sistema hizo bien su trabajo, el
     // rechazo fue del banco. Distinguirlo del 500 es lo que permite al
@@ -55,9 +46,9 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error:
-          'Algo falló de nuestro lado y no se completó el pago. Revisa «Mis pedidos» antes de volver a intentar.',
+          'Algo falló de nuestro lado. Revisa tu correo antes de volver a intentar: si el cobro pasó, ahí está tu enlace.',
         mensaje:
-          'Algo falló de nuestro lado y no se completó el pago. Revisa «Mis pedidos» antes de volver a intentar.',
+          'Algo falló de nuestro lado. Revisa tu correo antes de volver a intentar: si el cobro pasó, ahí está tu enlace.',
         codigo: 'excepcion_no_prevista',
         paso: 'desconocido',
         referencia: null,

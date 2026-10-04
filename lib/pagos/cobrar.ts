@@ -7,16 +7,20 @@
  *   repositorio→ deja rastro antes de tocar plata
  *   pasarela   → cobra
  *   repositorio→ crea el pedido y cierra el rastro
+ *   avisos     → correo 1 con el enlace para editar (si ya esta aprobado)
  *
  * Un pago RECHAZADO vuelve como dato (`ok: false`), no como excepcion:
  * el sistema funciono perfecto, fue el banco el que dijo que no, y el
  * comprador merece leer por que.
  */
 
+import { randomUUID } from 'node:crypto';
 import { traerPlantilla } from '@/lib/catalogo';
+import { rutaEdicion } from '@/lib/acceso';
+import { avisarEnlace } from '@/lib/notificaciones';
 import { errores, ErrorPago } from './errores';
 import { leerSolicitud, type SolicitudPago } from './contrato';
-import { cobrar as cobrarEnPasarela, emailPagador, type PagoRealizado } from './pasarela';
+import { cobrar as cobrarEnPasarela, emailPagador, MP_ES_PRUEBA, type PagoRealizado } from './pasarela';
 import {
   abrirIntento,
   cerrarIntento,
@@ -24,9 +28,23 @@ import {
 } from './repositorio';
 import { explicarPendiente, explicarRechazo, MENSAJE_APROBADO } from './mensajes';
 
-export interface Comprador {
-  id: string;
-  email?: string | null;
+/**
+ * Pagos simulados: SOLO en prueba (MP_MODO=prueba) y con PAGOS_SIMULADOS=1.
+ * Sirven para probar el flujo entero (editor, correos, QR) sin pelear con
+ * las tarjetas de prueba. En cuanto MP_MODO pasa a produccion, se apagan
+ * solos aunque la variable se haya quedado puesta.
+ */
+export const PAGOS_SIMULADOS = MP_ES_PRUEBA && process.env.PAGOS_SIMULADOS === '1';
+
+function pagoSimulado(referencia: string): PagoRealizado {
+  return {
+    id: `SIM-${randomUUID()}`,
+    estado: 'processed',
+    detalle: 'accredited',
+    clase: 'aprobado',
+    metodoId: 'simulado',
+    referencia,
+  };
 }
 
 export type Cobro =
@@ -48,8 +66,15 @@ export type Cobro =
       pagoId: string;
     };
 
-export async function procesarCobro(crudo: unknown, comprador: Comprador): Promise<Cobro> {
+export async function procesarCobro(crudo: unknown): Promise<Cobro> {
+  // Sin esto el cobro pasaria pero no habria enlace para editar: se
+  // comprueba ANTES de tocar plata, no despues.
+  if (!process.env.EDICION_SECRETO) throw errores.sinConfigurar('EDICION_SECRETO');
+
   const solicitud: SolicitudPago = leerSolicitud(crudo);
+  if (solicitud.metodo === 'simulado' && !PAGOS_SIMULADOS) {
+    throw errores.metodoNoSoportado('simulado');
+  }
 
   // --- el precio, SIEMPRE desde el servidor ---
   const plantilla = await traerPlantilla(solicitud.plantilla);
@@ -57,8 +82,7 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
 
   // --- rastro antes de mover plata ---
   const intento = await abrirIntento({
-    compradorId: comprador.id,
-    compradorEmail: comprador.email,
+    compradorEmail: solicitud.email,
     plantilla: plantilla.slug,
     ocasion: solicitud.ocasion,
     metodo: solicitud.metodo,
@@ -67,11 +91,12 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
 
   // Se calcula ANTES del try para poder guardarlo en la bitacora si falla:
   // "que correo mandamos" es la primera pregunta ante un 403 de MP.
-  const correoPagador = emailPagador(solicitud.emailPagador ?? comprador.email);
+  // El del formulario (validado dos veces), no el que trae el Brick.
+  const correoPagador = emailPagador(solicitud.email);
 
   let pago: PagoRealizado;
   try {
-    pago = await cobrarEnPasarela({
+    pago = solicitud.metodo === 'simulado' ? pagoSimulado(intento) : await cobrarEnPasarela({
       monto: plantilla.precio_centavos / 100,
       descripcion: `Experiencia QR · ${plantilla.nombre}`,
       token: solicitud.token,
@@ -85,7 +110,7 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
       // (usuario, plantilla, ocasion) ya esta en `intentos_pago`, asi que
       // basta con mandar su id: el webhook lo lee de vuelta y reconstruye.
       referencia: intento,
-      claveIdempotencia: `${comprador.id}:${solicitud.token}`,
+      claveIdempotencia: `${solicitud.email}:${solicitud.token}`,
     });
   } catch (e) {
     const err = e as ErrorPago;
@@ -120,8 +145,7 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
       {
         ocasion: solicitud.ocasion,
         tema: plantilla.tema,
-        compradorId: comprador.id,
-        compradorEmail: comprador.email,
+        compradorEmail: solicitud.email,
         precioCentavos: plantilla.precio_centavos,
         moneda: plantilla.moneda,
       },
@@ -148,12 +172,17 @@ export async function procesarCobro(crudo: unknown, comprador: Comprador): Promi
     pedidoId: pedido.id,
   });
 
+  // Correo 1. Si falla no pasa nada grave: el comprador ya va camino al
+  // editor en esta misma pantalla, y el webhook o "Reenviar" lo reintentan.
+  if (aprobado) await avisarEnlace(pedido.id);
+
   return {
     ok: true,
     clase: aprobado ? 'aprobado' : 'pendiente',
     mensaje: aprobado ? MENSAJE_APROBADO : explicarPendiente(pago.detalle),
     pedidoId: pedido.id,
-    siguiente: aprobado ? `/pedido/${pedido.id}/completar` : '/mis-pedidos',
+    // Aprobado o pendiente, el mismo enlace: la pagina sabe que mostrar.
+    siguiente: rutaEdicion(pedido.id),
     referencia,
     pagoId: pago.id,
   };

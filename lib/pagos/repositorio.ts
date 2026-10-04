@@ -16,8 +16,7 @@ import type { PagoRealizado } from './pasarela';
 import type { MetodoPago } from './contrato';
 
 export interface AperturaDeIntento {
-  compradorId: string;
-  compradorEmail?: string | null;
+  compradorEmail: string;
   plantilla: string;
   ocasion: string;
   metodo: MetodoPago;
@@ -38,8 +37,7 @@ export async function abrirIntento(d: AperturaDeIntento): Promise<string> {
   const { data, error } = await supabaseAdmin()
     .from('intentos_pago')
     .insert({
-      comprador_id: d.compradorId,
-      comprador_email: d.compradorEmail ?? null,
+      comprador_email: d.compradorEmail,
       plantilla: d.plantilla,
       ocasion: d.ocasion,
       metodo: d.metodo,
@@ -78,14 +76,13 @@ export async function cerrarIntento(id: string, c: CierreDeIntento): Promise<voi
 export interface DatosDelPedido {
   ocasion: string;
   tema: string;
-  compradorId: string;
-  compradorEmail?: string | null;
+  compradorEmail: string;
   precioCentavos: number;
   moneda: string;
 }
 
 /**
- * Crea el pedido ya vinculado al comprador. El `onConflict` sobre
+ * Crea el pedido con el correo del comprador. El `onConflict` sobre
  * mp_payment_id es lo que hace idempotente el reintento del brick y del
  * webhook: dos llegadas del mismo pago = un solo pedido.
  *
@@ -107,8 +104,7 @@ export async function registrarPedidoPagado(
         slug: nuevoSlug(),
         tema: d.tema,
         estado: aprobado ? 'pendiente_datos' : 'pendiente_pago',
-        comprador_id: d.compradorId,
-        comprador_email: d.compradorEmail ?? null,
+        comprador_email: d.compradorEmail,
         precio_centavos: d.precioCentavos,
         moneda: d.moneda,
         mp_payment_id: pago.id,
@@ -149,11 +145,10 @@ export async function buscarIntento(id: string) {
   if (!id) return null;
   const { data } = await supabaseAdmin()
     .from('intentos_pago')
-    .select('comprador_id, comprador_email, plantilla, ocasion')
+    .select('comprador_email, plantilla, ocasion')
     .eq('id', id)
     .maybeSingle();
   return data as {
-    comprador_id: string | null;
     comprador_email: string | null;
     plantilla: string | null;
     ocasion: string | null;

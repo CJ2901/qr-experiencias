@@ -1,13 +1,14 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { supabaseSesion, usuarioActual } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase';
+import { accesoValido, type Acceso } from '@/lib/acceso';
 import { consultar } from '@/lib/pagos/pasarela';
 import { sincronizarPedido } from '@/lib/pagos/repositorio';
 import { explicarPendiente, explicarRechazo } from '@/lib/pagos/mensajes';
+import { avisarEnlace } from '@/lib/notificaciones';
 
 /**
- * "Ya pague, revisa": le pregunta a Mercado Pago como quedo el pago y
+ * "Ya pague, revisar": le pregunta a Mercado Pago como quedo el pago y
  * pone el pedido al dia.
  *
  * Existe por dos razones:
@@ -16,25 +17,21 @@ import { explicarPendiente, explicarRechazo } from '@/lib/pagos/mensajes';
  *  - en produccion es la red de seguridad: los webhooks se pierden,
  *    llegan tarde o los rechaza un despliegue a medias.
  *
- * La LECTURA va con la sesion del usuario (RLS comprueba que el pedido es
- * suyo). La ESCRITURA va con service_role, porque la politica de UPDATE
- * del cliente solo cubre 'pendiente_datos' y aqui venimos de
- * 'pendiente_pago'. Esa asimetria es intencional.
+ * Sin cuentas, la autorizacion es el enlace firmado: sin firma valida,
+ * el pedido "no existe".
  */
 
 export type RevisionDePago =
   | { ok: true; estado: string; mensaje: string; listoParaCompletar: boolean }
   | { ok: false; mensaje: string };
 
-export async function revisarPago(pedidoId: string): Promise<RevisionDePago> {
-  const usuario = await usuarioActual();
-  if (!usuario) return { ok: false, mensaje: 'Se cerró tu sesión. Vuelve a entrar.' };
+export async function revisarPago(acceso: Acceso): Promise<RevisionDePago> {
+  if (!accesoValido(acceso)) return { ok: false, mensaje: 'Este enlace no es válido.' };
 
-  const sb = await supabaseSesion();
-  const { data: pedido } = await sb
+  const { data: pedido } = await supabaseAdmin()
     .from('pedidos')
     .select('id, estado, mp_payment_id')
-    .eq('id', pedidoId)
+    .eq('id', acceso.id)
     .maybeSingle();
 
   if (!pedido) return { ok: false, mensaje: 'No encontramos ese pedido.' };
@@ -49,39 +46,25 @@ export async function revisarPago(pedidoId: string): Promise<RevisionDePago> {
   }
 
   if (!pedido.mp_payment_id) {
-    return {
-      ok: false,
-      mensaje: 'Este pedido no tiene un pago asociado. Escríbenos y lo revisamos.',
-    };
+    return { ok: false, mensaje: 'Este pedido no tiene un pago asociado. Escríbenos y lo revisamos.' };
   }
 
   const pago = await consultar(String(pedido.mp_payment_id));
   if (!pago) {
-    return {
-      ok: false,
-      mensaje: 'No pudimos consultar el pago en Mercado Pago. Inténtalo en unos minutos.',
-    };
+    return { ok: false, mensaje: 'No pudimos consultar el pago en Mercado Pago. Inténtalo en unos minutos.' };
   }
 
-  const estado = await sincronizarPedido(pedidoId, pedido.estado, pago);
-  revalidatePath('/mis-pedidos');
+  const estado = await sincronizarPedido(pedido.id, pedido.estado, pago);
 
   if (pago.clase === 'aprobado') {
-    return {
-      ok: true,
-      estado,
-      mensaje: 'Pago confirmado. Ya puedes completar tu experiencia.',
-      listoParaCompletar: true,
-    };
+    await avisarEnlace(pedido.id);
+    return { ok: true, estado, mensaje: 'Pago confirmado. Ya puedes escribir tu dedicatoria.', listoParaCompletar: true };
   }
 
   return {
     ok: true,
     estado,
-    mensaje:
-      pago.clase === 'pendiente'
-        ? explicarPendiente(pago.detalle)
-        : explicarRechazo(pago.detalle).mensaje,
+    mensaje: pago.clase === 'pendiente' ? explicarPendiente(pago.detalle) : explicarRechazo(pago.detalle).mensaje,
     listoParaCompletar: false,
   };
 }

@@ -113,6 +113,15 @@ export const errores = {
     });
   },
 
+  correoInvalido() {
+    return new ErrorPago({
+      paso: 'entrada',
+      codigo: 'correo_invalido',
+      publico: 'Revisa tu correo: tiene que estar bien escrito y ser igual en los dos campos.',
+      http: 400,
+    });
+  },
+
   metodoNoSoportado(metodo: string) {
     return new ErrorPago({
       paso: 'entrada',

@@ -4,6 +4,12 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { guardarBorrador, urlDeSubida, publicarPedido, type Borrador } from '@/app/actions/pedido';
 
+/** El enlace firmado del correo: es la unica autorizacion que hay. */
+export interface AccesoPedido {
+  id: string;
+  firma: string;
+}
+
 /**
  * Formulario por pasos. Dos decisiones deliberadas:
  *  - se guarda al AVANZAR de paso, no al final: si el cliente cierra
@@ -12,7 +18,7 @@ import { guardarBorrador, urlDeSubida, publicarPedido, type Borrador } from '@/a
  */
 
 interface Props {
-  pedidoId: string;
+  acceso: AccesoPedido;
   maxChars: number;
   /** Vienen de la plantilla, no de una constante: se afinan sin desplegar. */
   limites: { min: number; max: number };
@@ -24,7 +30,7 @@ interface Props {
 const PASOS = ['Para quién', 'La carta', 'Las fotos', 'Revisar'] as const;
 
 export default function FormularioGuiado({
-  pedidoId,
+  acceso,
   maxChars,
   limites,
   previews,
@@ -68,7 +74,7 @@ export default function FormularioGuiado({
     if (e) return setError(e);
     setError('');
     empezar(async () => {
-      const r = await guardarBorrador(pedidoId, d);
+      const r = await guardarBorrador(acceso, d);
       if (!r.ok) return setError(r.error);
       setPaso((p) => Math.min(p + 1, PASOS.length - 1));
     });
@@ -87,7 +93,7 @@ export default function FormularioGuiado({
           setError(`"${file.name}" pesa más de 10 MB. Redúcela e inténtalo de nuevo.`);
           continue;
         }
-        const r = await urlDeSubida(pedidoId, file.name);
+        const r = await urlDeSubida(acceso, file.name);
         if (!r.ok) { setError(r.error); break; }
 
         const res = await fetch(r.signedUrl, {
@@ -106,7 +112,7 @@ export default function FormularioGuiado({
           ? { foto_final: nuevas[0] }
           : { fotos: [...d.fotos, ...nuevas] };
         setD((prev) => ({ ...prev, ...campos } as typeof prev));
-        await guardarBorrador(pedidoId, campos);
+        await guardarBorrador(acceso, campos);
       }
     } finally {
       setSubiendo(false);
@@ -117,16 +123,17 @@ export default function FormularioGuiado({
     if (reciEn[ruta]) URL.revokeObjectURL(reciEn[ruta]);
     const fotos = d.fotos.filter((f) => f !== ruta);
     set('fotos', fotos);
-    await guardarBorrador(pedidoId, { fotos });
+    await guardarBorrador(acceso, { fotos });
   }
 
   function publicar() {
     setError('');
     empezar(async () => {
-      await guardarBorrador(pedidoId, d);
-      const r = await publicarPedido(pedidoId);
+      await guardarBorrador(acceso, d);
+      const r = await publicarPedido(acceso);
       if (!r.ok) return setError(r.error);
-      router.push(`/pedido/${pedidoId}/listo`);
+      // La misma URL ahora muestra el QR: el estado ya es 'listo'.
+      router.refresh();
     });
   }
 

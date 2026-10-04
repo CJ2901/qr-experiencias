@@ -151,3 +151,17 @@ middleware.ts                 protege /admin
 ## Migrar lo que ya vendiste
 
 Las páginas del Docker de Render siguen vivas en sus URLs actuales; no las rompas. Para cada pedido histórico: inserta la fila aquí, sube las fotos al bucket, y en el Docker deja un redirect 301 de `/landing/<id>` a la ruta nueva. Los QR impresos siguen funcionando y puedes apagar Render cuando el tráfico llegue a cero.
+
+---
+
+## Compra sin cuenta
+
+```
+/  (catálogo)  →  /catalogo/<plantilla>  →  /checkout/<plantilla>  (correo ×2 + pago)
+      →  /editar/<id>/<firma>   pago en revisión · editor · QR publicado (misma URL)
+```
+
+- **El enlace es la llave.** `firma = HMAC(EDICION_SECRETO, id)` (`lib/acceso.ts`). Sin firma válida, el pedido "no existe".
+- **Correo 1** (enlace para editar) al aprobarse el pago; **correo 2** (QR visible + PNG adjunto) al publicar. `lib/notificaciones.ts` garantiza un solo envío aunque lleguen a la vez navegador y webhook.
+- **¿Perdiste tu enlace?** `/reenviar`: misma respuesta exista o no el correo, máximo uno cada 10 min por pedido.
+- **Pagos simulados** para probar el flujo sin tarjeta: `MP_MODO=prueba` + `PAGOS_SIMULADOS=1`.

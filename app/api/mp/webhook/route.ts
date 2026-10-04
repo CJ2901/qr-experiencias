@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { nuevoSlug } from '@/lib/slug';
 import { consultar } from '@/lib/pagos/pasarela';
 import { buscarIntento, buscarPedidoPorPago, sincronizarPedido } from '@/lib/pagos/repositorio';
+import { avisarEnlace } from '@/lib/notificaciones';
 
 /**
  * POST /api/mp/webhook
@@ -79,7 +80,9 @@ export async function POST(req: NextRequest) {
 
   const existente = await buscarPedidoPorPago(pago.id);
   if (existente) {
-    await sincronizarPedido(existente.id, existente.estado, pago);
+    const estado = await sincronizarPedido(existente.id, existente.estado, pago);
+    // Yape o un pago en revision que se acaba de aprobar: correo 1 ahora.
+    if (estado === 'pendiente_datos') await avisarEnlace(existente.id);
     return NextResponse.json({ ok: true });
   }
 
@@ -90,7 +93,7 @@ export async function POST(req: NextRequest) {
   // mejor: la bitacora es nuestra y no depende de que MP nos devuelva
   // intacto lo que le mandamos.
   const intento = await buscarIntento(pago.referencia);
-  if (pago.clase === 'aprobado' && intento?.comprador_id && intento.plantilla) {
+  if (pago.clase === 'aprobado' && intento?.comprador_email && intento.plantilla) {
     const sb = supabaseAdmin();
     const { data: plantilla } = await sb
       .from('plantillas')
@@ -98,14 +101,13 @@ export async function POST(req: NextRequest) {
       .eq('slug', intento.plantilla)
       .maybeSingle();
 
-    await sb.from('pedidos').upsert(
+    const { data: creado } = await sb.from('pedidos').upsert(
       {
         ocasion: intento.ocasion || 'cumpleanos',
         slug: nuevoSlug(),
         tema: plantilla?.tema ?? 'correspondencia',
         estado: 'pendiente_datos',
-        comprador_id: intento.comprador_id,
-        comprador_email: intento.comprador_email ?? pago.emailPagador ?? null,
+        comprador_email: intento.comprador_email,
         precio_centavos: plantilla?.precio_centavos ?? null,
         moneda: plantilla?.moneda ?? 'PEN',
         mp_payment_id: pago.id,
@@ -113,7 +115,11 @@ export async function POST(req: NextRequest) {
         pagado_en: new Date().toISOString(),
       },
       { onConflict: 'mp_payment_id' }
-    );
+    ).select('id').maybeSingle();
+
+    // El navegador murio antes de llegar al editor: el correo es lo unico
+    // que tiene el comprador para volver.
+    if (creado?.id) await avisarEnlace(String(creado.id));
   }
 
   return NextResponse.json({ ok: true });
