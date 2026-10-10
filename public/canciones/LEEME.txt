@@ -1,0 +1,10 @@
+Canciones para los regalos (lib/canciones.ts).
+
+Cada archivo se llama igual que su id en lib/canciones.ts:
+  piano-romantico.mp3
+  acustica-calida.mp3
+  ukelele-alegre.mp3
+  cinematica.mp3
+
+- Solo musica con licencia de uso comercial (Pixabay Music u otra con licencia).
+- MP3 de 128 kbps, 1:30 a 3:00 min, menos de 3 MB: suena en bucle y carga rapido con datos moviles.

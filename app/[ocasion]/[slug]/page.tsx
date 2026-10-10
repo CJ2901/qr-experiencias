@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { firmarRuta, firmarRutas } from '@/lib/media';
 import { temaDe } from '@/lib/temas';
 import { cortarLineas } from '@/lib/wrap';
+import { urlCancion } from '@/lib/canciones';
 
 /**
  * La ruta publica: /[ocasion]/[slug]
@@ -31,7 +32,7 @@ async function traerPedido(ocasion: string, slug: string) {
   const { data } = await supabaseAdmin()
     .from('pedidos')
     .select(
-      'ocasion, slug, tema, destinatario, pareja, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, emojis, texto_boton, fotos, foto_final, voz_url, cancion_url'
+      'ocasion, slug, tema, destinatario, pareja, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, emojis, texto_boton, fotos, foto_final, voz_url, cancion_url, musica'
     )
     .eq('ocasion', ocasion)
     .eq('slug', slug)
@@ -81,7 +82,8 @@ export default async function Pagina({ params }: Params) {
     emojis: p.emojis,
     texto_boton: p.texto_boton,
     voz_url: p.voz_url,
-    cancion_url: p.cancion_url,
+    // Una cancion propia (IA, a futuro) manda; si no, la elegida del catalogo.
+    cancion_url: p.cancion_url ?? urlCancion(p.musica),
   };
 
   return (

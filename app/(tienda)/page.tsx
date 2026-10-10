@@ -3,6 +3,7 @@ import { listarPlantillas } from '@/lib/catalogo';
 import { MARCA } from '@/lib/marca';
 import PreviewTema from '@/components/tienda/PreviewTema';
 import Precio from '@/components/tienda/Precio';
+import Polaroid from '@/components/Polaroid';
 
 /**
  * El landing ES el catalogo. Quien llega desde un anuncio ve de inmediato
@@ -18,9 +19,13 @@ export const metadata = {
     'Una carta escrita a mano que se dibuja sola, tus fotos y un QR para regalar. Lista en minutos.',
 };
 
+/** Fotos de muestra de la portada (public/demo). Sin ellas se ve un degradado. */
+const DEMO = ['/demo/1.jpg', '/demo/2.jpg', '/demo/3.jpg'];
+
 const INCLUYE = [
   { t: 'Carta escrita a mano', d: 'Tu mensaje se dibuja letra por letra al abrir el sobre.' },
-  { t: 'Galería de recuerdos', d: 'Tus fotos favoritas, en un carrusel que se recorre con el dedo.' },
+  { t: 'Tus fotos en polaroid', d: 'Pasan solas, una a una, y se amplían con un toque.' },
+  { t: 'Una canción de fondo', d: 'Eliges la música y empieza a sonar apenas lo abren.' },
   { t: 'Un QR para regalar', d: 'Lo imprimes o lo envías. Al escanearlo, se abre la sorpresa.' },
   { t: 'Dura 5 años', d: 'El enlace sigue funcionando para volver a leerlo cuando quieran.' },
 ];
@@ -38,13 +43,14 @@ export default async function Inicio() {
   return (
     <main>
       {/* ---------- portada ---------- */}
-      <section className="mx-auto max-w-5xl px-5 pb-6 pt-12 sm:pt-16">
+      <section className="mx-auto grid max-w-5xl items-center gap-10 px-5 pb-6 pt-12 sm:pt-16 md:grid-cols-[minmax(0,1fr)_340px]">
+        <div>
         <h1 className="max-w-2xl text-[2.1rem] font-semibold leading-[1.1] tracking-tight text-stone-900 sm:text-5xl">
           Dilo con una carta que se escribe sola.
         </h1>
         <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-stone-600">
-          Tu mensaje escrito a mano, tus fotos y un QR para regalar. Lo armas en
-          minutos desde el celular y llega como una sorpresa que se abre al escanear.
+          Tu mensaje escrito a mano, tus fotos en polaroid y su canción. Lo armas en
+          minutos desde el celular y llega como una sorpresa que se abre al escanear un QR.
         </p>
         <a
           href="#dedicatorias"
@@ -52,6 +58,12 @@ export default async function Inicio() {
         >
           Ver dedicatorias
         </a>
+        </div>
+
+        {/* La misma polaroid que ve quien recibe el regalo. */}
+        <div data-tema="correspondencia" className="order-first md:order-last" style={{ background: 'transparent' }}>
+          <Polaroid fotos={DEMO} titulo="Ejemplo de galería" />
+        </div>
       </section>
 
       {/* ---------- catalogo ---------- */}

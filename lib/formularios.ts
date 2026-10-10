@@ -3,15 +3,14 @@ import type { TemaId } from './temas';
 /**
  * El formulario de la dedicatoria cambia segun DOS cosas:
  *
- *  - la PLANTILLA (tema): cada carrusel recorta las fotos con otra forma
- *    (cuadradas en Correspondencia, verticales en las demas) y algunos
- *    temas usan campos de forma especial (la fecha va en el matasellos);
+ *  - la PLANTILLA (tema): ayudas propias y campos que algunos temas usan
+ *    de forma especial (la fecha va en el matasellos de Correspondencia);
  *  - la OCASION: los ejemplos y las etiquetas de un cumpleanos no sirven
  *    para una propuesta, donde la ultima frase ES la pregunta.
  *
  * Sin dependencias de servidor: lo usa el formulario en el navegador.
- * Los encuadres salen de app/globals.css (.baraja, .coverflow, .abanico,
- * .tira, .foto-final): si cambias un tamano alla, cambialo aqui.
+ * Los encuadres salen de app/globals.css (.polaroid .pl-ventana y
+ * .foto-final): si cambias un tamano alla, cambialo aqui.
  */
 
 export interface Encuadre {
@@ -43,28 +42,31 @@ export interface ConfigFormulario extends PorTema, PorOcasion {
   fotoFinal: Encuadre;
 }
 
+/** Las cuatro plantillas muestran la galeria en una polaroid (.pl-ventana 10/9). */
+const POLAROID: Encuadre = { aspecto: 10 / 9, forma: 'de polaroid' };
+
 const TEMAS: Record<TemaId, PorTema> = {
   correspondencia: {
-    galeria: { aspecto: 1, forma: 'cuadradas' },
-    ayudaFotos: 'Se ven como polaroids cuadradas en una baraja. Centra las caras al ajustar.',
+    galeria: POLAROID,
+    ayudaFotos: 'Se ven en una polaroid que pasa sola de foto en foto. Centra las caras al ajustar.',
     ayudaFecha: 'También sale en el matasellos del sobre: corta se ve mejor («18 jun»).',
     maxFecha: 20,
   },
   'luz-de-vela': {
-    galeria: { aspecto: 190 / 236, forma: 'verticales' },
-    ayudaFotos: 'Se ven como tarjetas verticales que giran. Funcionan mejor las fotos de noche o con luz cálida.',
+    galeria: POLAROID,
+    ayudaFotos: 'Se ven en una polaroid que pasa sola de foto en foto. Las fotos con luz cálida lucen más aquí.',
     ayudaFecha: 'Aparece debajo de la portada.',
     maxFecha: 30,
   },
   herbario: {
-    galeria: { aspecto: 152 / 182, forma: 'verticales' },
-    ayudaFotos: 'Se abren en abanico como fotos impresas. Elige retratos o paisajes con aire.',
+    galeria: POLAROID,
+    ayudaFotos: 'Se ven en una polaroid que pasa sola de foto en foto. Los retratos y paisajes con aire lucen más.',
     ayudaFecha: 'Aparece debajo de la portada, junto a la ramita.',
     maxFecha: 30,
   },
   editorial: {
-    galeria: { aspecto: 268 / 330, forma: 'verticales y grandes' },
-    ayudaFotos: 'Van grandes y numeradas, como en una revista. Las fotos nítidas lucen más.',
+    galeria: POLAROID,
+    ayudaFotos: 'Se ven en una polaroid que pasa sola de foto en foto. Las fotos nítidas lucen más.',
     ayudaFecha: 'Aparece debajo de la portada.',
     maxFecha: 30,
     ayudaFrases: 'Este estilo no usa cursivas: frases cortas y directas funcionan mejor.',

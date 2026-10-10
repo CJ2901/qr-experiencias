@@ -1,0 +1,5 @@
+Fotos de muestra para la polaroid del inicio (app/(tienda)/page.tsx):
+  1.jpg  2.jpg  3.jpg
+- Horizontales o cuadradas, ~1000 px de ancho, menos de 250 KB cada una.
+- Solo fotos propias o con permiso (son publicidad del negocio).
+Mientras no existan, la polaroid muestra un degradado del color de la plantilla.

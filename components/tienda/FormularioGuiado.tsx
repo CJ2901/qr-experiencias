@@ -12,6 +12,8 @@ import {
 import type { ConfigFormulario, Encuadre } from '@/lib/formularios';
 import { prepararImagen } from '@/lib/imagen';
 import Recortador from './Recortador';
+import SelectorCancion from './SelectorCancion';
+import { CANCIONES } from '@/lib/canciones';
 
 /** El enlace firmado del correo: es la unica autorizacion que hay. */
 export interface AccesoPedido {
@@ -39,7 +41,8 @@ interface Props {
   inicial: Required<Omit<Borrador, 'foto_final'>> & { foto_final: string | null };
 }
 
-const PARTES = ['Para quién', 'La carta', 'Las fotos', 'Revisar'] as const;
+const PARTES = ['Para quién', 'La carta', 'Las fotos', 'La canción', 'Revisar'] as const;
+const REVISAR = PARTES.length - 1;
 
 /** Que foto se esta encuadrando y con que forma. */
 interface Ajuste {
@@ -423,8 +426,22 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
           </>
         )}
 
-        {/* ---------- revisar ---------- */}
+        {/* ---------- la canción ---------- */}
         {parte === 3 && (
+          <div>
+            <p className="text-sm font-medium text-stone-800">¿Con qué canción se abre?</p>
+            <p className={ayuda}>
+              Empieza a sonar apenas toque la pantalla, y puede silenciarla cuando quiera.
+              Toca ▶ para escucharlas.
+            </p>
+            <div className="mt-4">
+              <SelectorCancion valor={d.musica} onCambiar={(id) => set('musica', id)} />
+            </div>
+          </div>
+        )}
+
+        {/* ---------- revisar ---------- */}
+        {parte === REVISAR && (
           <div className="space-y-4">
             <dl className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white text-sm">
               {(
@@ -434,6 +451,7 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
                   ['Fecha', d.fecha_texto || '—'],
                   ...(config.finalDestacada ? [[config.finalDestacada.etiqueta, d.frase_final || '—']] : []),
                   ['Fotos', `${d.fotos.length} en la galería${d.foto_final ? ' + cierre' : ''}`],
+                  ['Canción', CANCIONES.find((c) => c.id === d.musica)?.titulo ?? 'Sin música'],
                 ] as const
               ).map(([k, v]) => (
                 <div key={k} className="flex gap-4 px-4 py-3">

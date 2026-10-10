@@ -12,6 +12,7 @@ import BotonRevisarPago from '@/components/tienda/BotonRevisarPago';
 import TarjetaQR from '@/components/tienda/TarjetaQR';
 import { aTextoEditable } from '@/lib/texto';
 import { configFormulario } from '@/lib/formularios';
+import { CANCIONES } from '@/lib/canciones';
 
 /**
  * /editar/<pedidoId>/<firma> — la pantalla del comprador, sin cuenta.
@@ -43,7 +44,7 @@ export default async function Editar({ params }: Params) {
   const { data: pedido } = await supabaseAdmin()
     .from('pedidos')
     .select(
-      'id, ocasion, slug, tema, estado, comprador_email, destinatario, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, fotos, foto_final'
+      'id, ocasion, slug, tema, estado, comprador_email, destinatario, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, fotos, foto_final, musica'
     )
     .eq('id', acceso.id)
     .maybeSingle();
@@ -131,6 +132,9 @@ export default async function Editar({ params }: Params) {
           frase_final: aTextoEditable(pedido.frase_final),
           fotos: rutas,
           foto_final: pedido.foto_final ?? null,
+          // Nunca "sin musica" por omision: el regalo abre con una cancion
+          // salvo que el comprador la quite a proposito.
+          musica: pedido.musica ?? CANCIONES[0]?.id ?? null,
         }}
       />
     </main>

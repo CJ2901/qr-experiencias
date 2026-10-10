@@ -7,7 +7,7 @@
  */
 
 export type TemaId = 'correspondencia' | 'luz-de-vela' | 'herbario' | 'editorial';
-export type Carrusel = 'baraja' | 'coverflow' | 'abanico' | 'tira';
+export type Carrusel = 'polaroid' | 'baraja' | 'coverflow' | 'abanico' | 'tira';
 
 export interface Tema {
   id: TemaId;
@@ -29,7 +29,7 @@ export const TEMAS: Record<TemaId, Tema> = {
   correspondencia: {
     id: 'correspondencia',
     nombre: 'Correspondencia',
-    carrusel: 'baraja',
+    carrusel: 'polaroid', // antes: baraja
     manoSize: 15,
     maxChars: 26,
     deco: 'matasellos',
@@ -40,7 +40,7 @@ export const TEMAS: Record<TemaId, Tema> = {
   'luz-de-vela': {
     id: 'luz-de-vela',
     nombre: 'Luz de vela',
-    carrusel: 'coverflow',
+    carrusel: 'polaroid', // antes: coverflow
     manoSize: 20,
     maxChars: 24,
     deco: 'ninguno',
@@ -51,7 +51,7 @@ export const TEMAS: Record<TemaId, Tema> = {
   herbario: {
     id: 'herbario',
     nombre: 'Herbario',
-    carrusel: 'abanico',
+    carrusel: 'polaroid', // antes: abanico
     manoSize: 19,
     maxChars: 25,
     deco: 'ramita',
@@ -62,7 +62,7 @@ export const TEMAS: Record<TemaId, Tema> = {
   editorial: {
     id: 'editorial',
     nombre: 'Editorial',
-    carrusel: 'tira',
+    carrusel: 'polaroid', // antes: tira
     manoSize: 18,
     maxChars: 26,
     deco: 'ninguno',

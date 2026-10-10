@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import CartaManuscrita from './CartaManuscrita';
 import CarruselTema from './Carruseles';
 import Celebracion from './Celebracion';
@@ -72,24 +72,50 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
 
   const nivel = Math.min(100, (toques / TOTAL) * 100);
 
+  /**
+   * La musica arranca con el PRIMER toque del corazon, no al terminar:
+   * acompana la intro. Tiene que ser dentro de un gesto del usuario, porque
+   * los navegadores moviles bloquean el audio que empieza solo.
+   */
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [silencio, setSilencio] = useState(false);
+
+  function empezarMusica() {
+    if (audio.current || !pedido.cancion_url) return;
+    const a = new Audio(pedido.cancion_url);
+    a.loop = true;
+    a.volume = 0;
+    audio.current = a;
+    a.play()
+      .then(() => {
+        // entrada suave en ~1.5 s, no de golpe
+        let v = 0;
+        const t = setInterval(() => {
+          v = Math.min(0.6, v + 0.04);
+          a.volume = v;
+          if (v >= 0.6) clearInterval(t);
+        }, 100);
+      })
+      .catch(() => {
+        audio.current = null; // archivo faltante o bloqueado: el regalo sigue sin musica
+      });
+  }
+
+  function alternarSilencio() {
+    const a = audio.current;
+    if (!a) return;
+    a.muted = !a.muted;
+    setSilencio(a.muted);
+  }
+
   function tocar() {
     if (abierto) return;
+    empezarMusica();
     const n = toques + 1;
     setToques(n);
     setPop(true);
     setTimeout(() => setPop(false), 130);
-    if (n >= TOTAL) {
-      setTimeout(() => {
-        setAbierto(true);
-        // el gesto del usuario es lo que habilita el audio en movil
-        if (pedido.cancion_url) {
-          const a = new Audio(pedido.cancion_url);
-          a.volume = 0.6;
-          a.loop = true;
-          a.play().catch(() => {});
-        }
-      }, 420);
-    }
+    if (n >= TOTAL) setTimeout(() => setAbierto(true), 420);
   }
 
   function abrirSobre() {
@@ -102,6 +128,17 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
 
   return (
     <div className="stage" data-tema={tema.id}>
+      {pedido.cancion_url && toques > 0 && (
+        <button
+          type="button"
+          className="musica-btn"
+          onClick={alternarSilencio}
+          aria-label={silencio ? 'Activar música' : 'Silenciar música'}
+          aria-pressed={silencio}
+        >
+          ♪
+        </button>
+      )}
       {/* ---------------------------------------------------- intro */}
       <div className="intro" data-fuera={abierto}>
         <p className="intro-nm">{pedido.destinatario}</p>

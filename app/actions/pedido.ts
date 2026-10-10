@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { accesoValido, type Acceso } from '@/lib/acceso';
 import { avisarPublicado } from '@/lib/notificaciones';
 import { aHtmlSeguro } from '@/lib/texto';
+import { esCancionValida } from '@/lib/canciones';
 
 /**
  * Acciones del comprador sobre SU pedido, sin cuenta.
@@ -30,6 +31,8 @@ export interface Borrador {
   frase_final?: string;
   fotos?: string[];
   foto_final?: string | null;
+  /** id de lib/canciones.ts, o null para "sin musica". */
+  musica?: string | null;
 }
 
 type Resultado = { ok: true } | { ok: false; error: string };
@@ -81,6 +84,7 @@ function limpiar(id: string, c: Borrador): Record<string, unknown> {
   const propia = (r: unknown): r is string => esPropia(id, r);
   if (Array.isArray(c.fotos)) fila.fotos = c.fotos.filter(propia).slice(0, 12);
   if (c.foto_final === null || propia(c.foto_final)) fila.foto_final = c.foto_final;
+  if (c.musica === null || esCancionValida(c.musica)) fila.musica = c.musica;
   return fila;
 }
 

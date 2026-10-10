@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Carrusel } from '@/lib/temas';
+import Polaroid from './Polaroid';
 
 interface Props {
   /** URLs ya firmadas por el servidor. Puede venir vacio (fotos archivadas). */
@@ -217,6 +218,7 @@ export default function CarruselTema({
   onAbrir,
 }: Props & { tipo: Carrusel }) {
   if (!fotos.length) return null;
+  if (tipo === 'polaroid') return <Polaroid fotos={fotos} onAbrir={onAbrir} />;
   if (tipo === 'coverflow') return <Coverflow fotos={fotos} onAbrir={onAbrir} />;
   if (tipo === 'abanico') return <Abanico fotos={fotos} onAbrir={onAbrir} />;
   if (tipo === 'tira') return <Tira fotos={fotos} onAbrir={onAbrir} />;
