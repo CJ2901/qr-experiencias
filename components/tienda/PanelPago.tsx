@@ -8,6 +8,7 @@ import AvisoPago, { type Aviso } from './AvisoPago';
 import { enviarPago, type RespuestaPago } from '@/lib/pagos/cliente';
 import PasosCompra from './PasosCompra';
 import PagoAprobado from './PagoAprobado';
+import { sugerirCorreo } from '@/lib/correo/sugerir';
 
 /**
  * El contenedor del checkout. Decide QUE se muestra:
@@ -55,6 +56,10 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
   const limpio = email.trim().toLowerCase();
   const valido = CORREO.test(limpio);
   const coincide = valido && limpio === confirmacion.trim().toLowerCase();
+
+  // Pegar en la confirmacion esta permitido, asi que la ultima red contra
+  // un typo es esta sugerencia del dominio (gmial.com → gmail.com).
+  const sugerencia = valido ? sugerirCorreo(limpio) : null;
 
   const errorCorreo = !tocado
     ? ''
@@ -123,12 +128,30 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
             value={confirmacion}
             onChange={(e) => setConfirmacion(e.target.value)}
             onBlur={() => setTocado(true)}
-            // Pegar el mismo texto anula la doble comprobacion.
-            onPaste={(e) => e.preventDefault()}
             className={campo}
           />
         </label>
       </div>
+      {sugerencia && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
+          ¿Quisiste decir <strong>{sugerencia}</strong>?{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(sugerencia);
+              setConfirmacion(sugerencia);
+            }}
+            className="font-semibold underline underline-offset-2"
+          >
+            Sí, corregir
+          </button>
+        </p>
+      )}
+      {coincide && !sugerencia && (
+        <p className="mt-2 text-sm text-stone-700">
+          Te enviaremos todo a <strong className="font-semibold">{limpio}</strong>
+        </p>
+      )}
       <p className={`mt-2 text-xs ${errorCorreo ? 'text-rose-700' : 'text-stone-500'}`} role={errorCorreo ? 'alert' : undefined}>
         {errorCorreo || 'Ahí te llegan el enlace para editar y tu QR. No necesitas crear cuenta.'}
       </p>
