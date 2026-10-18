@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
-import { enviarPago } from '@/lib/pagos/cliente';
+import { enviarPago, type RespuestaPago } from '@/lib/pagos/cliente';
 import AvisoPago, { type Aviso } from './AvisoPago';
 
 initMercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY as string, { locale: 'es-PE' });
@@ -33,10 +32,11 @@ interface Props {
   datos: { plantilla: string; ocasion: string; email: string; email_confirmacion: string };
   /** Solo para pintar el Brick. El cobro real usa el precio del servidor. */
   montoSoles: number;
+  /** Pago aceptado (aprobado o en revision): el panel decide que mostrar. */
+  onExito: (r: RespuestaPago) => void;
 }
 
-export default function CheckoutBrick({ datos, montoSoles }: Props) {
-  const router = useRouter();
+export default function CheckoutBrick({ datos, montoSoles, onExito }: Props) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   // Cambiar esta clave vuelve a montar el Brick desde cero. Sin esto, un
   // error de Mercado Pago deja el formulario inservible y hay que recargar
@@ -65,7 +65,7 @@ export default function CheckoutBrick({ datos, montoSoles }: Props) {
     }
 
     setAviso({ tono: 'exito', texto: r.mensaje, referencia: r.referencia });
-    if (r.siguiente) router.push(r.siguiente);
+    onExito(r);
   }
 
   return (

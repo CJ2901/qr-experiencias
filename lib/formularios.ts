@@ -49,7 +49,7 @@ const TEMAS: Record<TemaId, PorTema> = {
   correspondencia: {
     galeria: POLAROID,
     ayudaFotos: 'Se ven en una polaroid que pasa sola de foto en foto. Centra las caras al ajustar.',
-    ayudaFecha: 'También sale en el matasellos del sobre: corta se ve mejor («18 jun»).',
+    ayudaFecha: 'Aparece en la portada y también en el matasellos del sobre.',
     maxFecha: 20,
   },
   'luz-de-vela': {

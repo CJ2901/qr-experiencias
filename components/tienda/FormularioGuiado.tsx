@@ -13,7 +13,12 @@ import type { ConfigFormulario, Encuadre } from '@/lib/formularios';
 import { prepararImagen } from '@/lib/imagen';
 import Recortador from './Recortador';
 import SelectorCancion from './SelectorCancion';
-import { CANCIONES } from '@/lib/canciones';
+import GrabadorVoz from './GrabadorVoz';
+import VistaPrevia from './VistaPrevia';
+import { CANCIONES, urlCancion } from '@/lib/canciones';
+import { isoATexto, textoAIso } from '@/lib/fechas';
+import { aHtmlSeguro } from '@/lib/texto';
+import type { TemaId } from '@/lib/temas';
 
 /** El enlace firmado del correo: es la unica autorizacion que hay. */
 export interface AccesoPedido {
@@ -33,6 +38,10 @@ export interface AccesoPedido {
 interface Props {
   acceso: AccesoPedido;
   config: ConfigFormulario;
+  tema: TemaId;
+  ocasion: string;
+  /** URL firmada de la voz ya guardada, para escucharla aqui. */
+  vozPreview: string | null;
   maxChars: number;
   /** Vienen de la plantilla, no de una constante: se afinan sin desplegar. */
   limites: { min: number; max: number };
@@ -41,7 +50,7 @@ interface Props {
   inicial: Required<Omit<Borrador, 'foto_final'>> & { foto_final: string | null };
 }
 
-const PARTES = ['Para quién', 'La carta', 'Las fotos', 'La canción', 'Revisar'] as const;
+const PARTES = ['Para quién', 'La carta', 'Las fotos', 'Música y voz', 'Revisar'] as const;
 const REVISAR = PARTES.length - 1;
 
 /** Que foto se esta encuadrando y con que forma. */
@@ -53,7 +62,7 @@ interface Ajuste {
   local: boolean;
 }
 
-export default function FormularioGuiado({ acceso, config, maxChars, limites, previews, inicial }: Props) {
+export default function FormularioGuiado({ acceso, config, tema, ocasion, vozPreview, maxChars, limites, previews, inicial }: Props) {
   const router = useRouter();
   const [parte, setParte] = useState(0);
   const [d, setD] = useState(inicial);
@@ -67,6 +76,8 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
   const [error, setError] = useState('');
   const [subiendo, setSubiendo] = useState(false);
   const [ajuste, setAjuste] = useState<Ajuste | null>(null);
+  const [voz, setVoz] = useState<string | null>(vozPreview);
+  const [previa, setPrevia] = useState(false);
   const [guardando, empezar] = useTransition();
 
   const set = <K extends keyof typeof d>(k: K, v: (typeof d)[K]) => setD((prev) => ({ ...prev, [k]: v }));
@@ -191,6 +202,21 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
     await guardarBorrador(acceso, { fotos });
   }
 
+  async function guardarVoz(audio: Blob, nombre: string) {
+    setError('');
+    const ruta = await subirBlob(audio, nombre);
+    if (!ruta) return;
+    set('voz_url', ruta);
+    setVoz(URL.createObjectURL(audio));
+    await guardarBorrador(acceso, { voz_url: ruta });
+  }
+
+  async function quitarVoz() {
+    set('voz_url', null);
+    setVoz(null);
+    await guardarBorrador(acceso, { voz_url: null });
+  }
+
   function publicar() {
     setError('');
     empezar(async () => {
@@ -300,14 +326,25 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
               <span className="font-medium text-stone-800">
                 Fecha <span className="font-normal text-stone-400">(opcional)</span>
               </span>
+              {/* Calendario nativo: en el celular abre el selector de fecha del sistema. */}
               <input
+                type="date"
                 className={campo}
-                value={d.fecha_texto}
-                onChange={(e) => set('fecha_texto', e.target.value)}
-                placeholder={config.fecha}
-                maxLength={config.maxFecha}
+                value={textoAIso(d.fecha_texto)}
+                onChange={(e) => set('fecha_texto', isoATexto(e.target.value))}
               />
-              <span className={ayuda}>{config.ayudaFecha}</span>
+              <span className={ayuda}>
+                {d.fecha_texto ? (
+                  <>
+                    Se verá así: <strong className="font-medium text-stone-700">{d.fecha_texto}</strong> ·{' '}
+                    <button type="button" onClick={() => set('fecha_texto', '')} className="text-rose-700 hover:underline">
+                      Quitar fecha
+                    </button>
+                  </>
+                ) : (
+                  config.ayudaFecha
+                )}
+              </span>
             </label>
           </>
         )}
@@ -428,15 +465,18 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
 
         {/* ---------- la canción ---------- */}
         {parte === 3 && (
-          <div>
-            <p className="text-sm font-medium text-stone-800">¿Con qué canción se abre?</p>
-            <p className={ayuda}>
-              Empieza a sonar apenas toque la pantalla, y puede silenciarla cuando quiera.
-              Toca ▶ para escucharlas.
-            </p>
-            <div className="mt-4">
-              <SelectorCancion valor={d.musica} onCambiar={(id) => set('musica', id)} />
+          <div className="space-y-6">
+            <div>
+              <p className="text-sm font-medium text-stone-800">¿Con qué canción se abre?</p>
+              <p className={ayuda}>
+                Empieza a sonar cuando termina de tocar el corazón y se abre el regalo. Puede
+                silenciarla cuando quiera. Toca ▶ para escucharlas.
+              </p>
+              <div className="mt-4">
+                <SelectorCancion valor={d.musica} onCambiar={(id) => set('musica', id)} />
+              </div>
             </div>
+            <GrabadorVoz actual={voz} onListo={guardarVoz} onQuitar={quitarVoz} />
           </div>
         )}
 
@@ -452,6 +492,7 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
                   ...(config.finalDestacada ? [[config.finalDestacada.etiqueta, d.frase_final || '—']] : []),
                   ['Fotos', `${d.fotos.length} en la galería${d.foto_final ? ' + cierre' : ''}`],
                   ['Canción', CANCIONES.find((c) => c.id === d.musica)?.titulo ?? 'Sin música'],
+                  ['Tu voz', d.voz_url ? 'Grabada' : '—'],
                 ] as const
               ).map(([k, v]) => (
                 <div key={k} className="flex gap-4 px-4 py-3">
@@ -464,6 +505,14 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
                 <dd className="mt-1.5 whitespace-pre-line leading-relaxed text-stone-900">{d.mensaje}</dd>
               </div>
             </dl>
+
+            <button
+              type="button"
+              onClick={() => setPrevia(true)}
+              className="w-full rounded-xl border-2 border-stone-900 px-5 py-3 text-sm font-semibold text-stone-900 hover:bg-stone-50"
+            >
+              👀 Ver vista previa
+            </button>
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <p className="font-medium">Léelo una vez más antes de publicar.</p>
@@ -516,6 +565,32 @@ export default function FormularioGuiado({ acceso, config, maxChars, limites, pr
           )}
         </div>
       </div>
+
+      {previa && (
+        <VistaPrevia
+          tema={tema}
+          mensaje={d.mensaje}
+          fotos={d.fotos.map(miniatura).filter((u): u is string => Boolean(u))}
+          fotoFinal={d.foto_final ? (miniatura(d.foto_final) ?? null) : null}
+          onCerrar={() => setPrevia(false)}
+          pedido={{
+            ocasion,
+            slug: 'vista-previa',
+            destinatario: d.destinatario,
+            pareja: null,
+            // mismas transformaciones que al guardar: lo que ves es lo que se publica
+            frase_principal: aHtmlSeguro(d.frase_principal),
+            fecha_texto: d.fecha_texto || null,
+            frase_capitulo: d.frase_capitulo ? aHtmlSeguro(d.frase_capitulo) : null,
+            frase_brindis: d.frase_brindis ? aHtmlSeguro(d.frase_brindis) : null,
+            frase_final: d.frase_final ? aHtmlSeguro(d.frase_final) : null,
+            emojis: null,
+            texto_boton: 'Compartir este momento',
+            voz_url: voz,
+            cancion_url: urlCancion(d.musica),
+          }}
+        />
+      )}
 
       {ajuste && (
         <Recortador

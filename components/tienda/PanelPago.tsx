@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import CheckoutBrick from './CheckoutBrick';
 import PagoYape from './PagoYape';
 import AvisoPago, { type Aviso } from './AvisoPago';
-import { enviarPago } from '@/lib/pagos/cliente';
+import { enviarPago, type RespuestaPago } from '@/lib/pagos/cliente';
+import PasosCompra from './PasosCompra';
+import PagoAprobado from './PagoAprobado';
 
 /**
  * El contenedor del checkout. Decide QUE se muestra:
@@ -41,6 +43,14 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
   const [tocado, setTocado] = useState(false);
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [simulando, setSimulando] = useState(false);
+  /** Pago aprobado: se muestra el check y despues se va al editor. */
+  const [aprobadoHacia, setAprobadoHacia] = useState<string | null>(null);
+
+  function alPagar(r: RespuestaPago) {
+    if (!r.siguiente) return;
+    if (r.clase === 'aprobado') setAprobadoHacia(r.siguiente);
+    else router.push(r.siguiente); // en revision: directo a la pantalla de espera
+  }
 
   const limpio = email.trim().toLowerCase();
   const valido = CORREO.test(limpio);
@@ -63,7 +73,7 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
     setSimulando(false);
     if (!r.ok) return setAviso({ tono: 'error', texto: r.mensaje, referencia: r.referencia });
     setAviso({ tono: 'exito', texto: r.mensaje, referencia: r.referencia });
-    if (r.siguiente) router.push(r.siguiente);
+    alPagar(r);
   }
 
   const pestana = (id: Metodo, etiqueta: string) => (
@@ -85,6 +95,10 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
 
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+      {aprobadoHacia && <PagoAprobado siguiente={aprobadoHacia} />}
+      <div className="mb-6 border-b border-stone-100 pb-5">
+        <PasosCompra actual={coincide ? 1 : 0} />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="font-medium text-stone-800">Tu correo</span>
@@ -150,9 +164,9 @@ export default function PanelPago({ plantilla, montoSoles, ocasiones, yapeHabili
 
             {metodo === 'tarjeta' ? (
               // key: si cambia el correo, el Brick se monta de nuevo con el correcto
-              <CheckoutBrick key={limpio} datos={datos} montoSoles={montoSoles} />
+              <CheckoutBrick key={limpio} datos={datos} montoSoles={montoSoles} onExito={alPagar} />
             ) : (
-              <PagoYape datos={datos} />
+              <PagoYape datos={datos} onExito={alPagar} />
             )}
 
             {simulado && (

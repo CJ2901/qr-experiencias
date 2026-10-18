@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { enviarPago } from '@/lib/pagos/cliente';
+import { enviarPago, type RespuestaPago } from '@/lib/pagos/cliente';
 import AvisoPago, { type Aviso } from './AvisoPago';
 
 /**
@@ -58,10 +57,11 @@ const soloDigitos = (s: string, max: number) => s.replace(/\D/g, '').slice(0, ma
 
 export default function PagoYape({
   datos,
+  onExito,
 }: {
   datos: { plantilla: string; ocasion: string; email: string; email_confirmacion: string };
+  onExito: (r: RespuestaPago) => void;
 }) {
-  const router = useRouter();
   const [celular, setCelular] = useState('');
   const [codigo, setCodigo] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -113,7 +113,7 @@ export default function PagoYape({
     }
 
     setAviso({ tono: 'exito', texto: r.mensaje, referencia: r.referencia });
-    if (r.siguiente) router.push(r.siguiente);
+    onExito(r);
   }
 
   return (

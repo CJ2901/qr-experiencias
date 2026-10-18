@@ -16,6 +16,8 @@ export interface RespuestaPago {
   mensaje: string;
   /** A donde mandar al comprador cuando ok === true. */
   siguiente?: string;
+  /** 'aprobado' muestra el check; 'pendiente' va directo a la espera. */
+  clase?: string;
   /** Codigo que el comprador nos dicta si hay que reclamar. */
   referencia?: string | null;
   codigo?: string;
@@ -63,6 +65,7 @@ export async function enviarPago(cuerpo: Record<string, unknown>): Promise<Respu
     ok: r.ok && datos?.ok !== false,
     mensaje,
     siguiente: typeof datos?.siguiente === 'string' ? datos.siguiente : undefined,
+    clase: typeof datos?.clase === 'string' ? datos.clase : undefined,
     referencia: typeof datos?.referencia === 'string' ? datos.referencia : null,
     codigo: typeof datos?.codigo === 'string' ? datos.codigo : undefined,
     cambiarMedio: datos?.cambiarMedio === true,

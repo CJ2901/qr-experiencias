@@ -18,7 +18,20 @@ export default function SelectorCancion({
   const [sonando, setSonando] = useState<string | null>(null);
   const [faltan, setFaltan] = useState<Set<string>>(new Set());
 
-  useEffect(() => () => audio.current?.pause(), []);
+  // Se detiene al salir de esta parte, de la pestana o de la app.
+  useEffect(() => {
+    const alOcultar = () => {
+      if (document.hidden) {
+        audio.current?.pause();
+        setSonando(null);
+      }
+    };
+    document.addEventListener('visibilitychange', alOcultar);
+    return () => {
+      document.removeEventListener('visibilitychange', alOcultar);
+      audio.current?.pause();
+    };
+  }, []);
 
   function escuchar(id: string) {
     audio.current?.pause();

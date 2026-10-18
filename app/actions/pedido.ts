@@ -33,6 +33,8 @@ export interface Borrador {
   foto_final?: string | null;
   /** id de lib/canciones.ts, o null para "sin musica". */
   musica?: string | null;
+  /** Ruta en el bucket de la voz grabada por el comprador, o null. */
+  voz_url?: string | null;
 }
 
 type Resultado = { ok: true } | { ok: false; error: string };
@@ -85,6 +87,7 @@ function limpiar(id: string, c: Borrador): Record<string, unknown> {
   if (Array.isArray(c.fotos)) fila.fotos = c.fotos.filter(propia).slice(0, 12);
   if (c.foto_final === null || propia(c.foto_final)) fila.foto_final = c.foto_final;
   if (c.musica === null || esCancionValida(c.musica)) fila.musica = c.musica;
+  if (c.voz_url === null || propia(c.voz_url)) fila.voz_url = c.voz_url;
   return fila;
 }
 

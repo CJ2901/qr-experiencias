@@ -5,11 +5,12 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { accesoValido } from '@/lib/acceso';
 import { temaDe } from '@/lib/temas';
 import { limitesDeFotos } from '@/lib/catalogo';
-import { firmarRutas } from '@/lib/media';
+import { firmarRuta, firmarRutas } from '@/lib/media';
 import { baseDelSitio } from '@/lib/sitio';
 import FormularioGuiado from '@/components/tienda/FormularioGuiado';
 import BotonRevisarPago from '@/components/tienda/BotonRevisarPago';
 import TarjetaQR from '@/components/tienda/TarjetaQR';
+import PasosCompra from '@/components/tienda/PasosCompra';
 import { aTextoEditable } from '@/lib/texto';
 import { configFormulario } from '@/lib/formularios';
 import { CANCIONES } from '@/lib/canciones';
@@ -44,7 +45,7 @@ export default async function Editar({ params }: Params) {
   const { data: pedido } = await supabaseAdmin()
     .from('pedidos')
     .select(
-      'id, ocasion, slug, tema, estado, comprador_email, destinatario, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, fotos, foto_final, musica'
+      'id, ocasion, slug, tema, estado, comprador_email, destinatario, frase_principal, fecha_texto, mensaje, frase_capitulo, frase_brindis, frase_final, fotos, foto_final, musica, voz_url'
     )
     .eq('id', acceso.id)
     .maybeSingle();
@@ -58,6 +59,9 @@ export default async function Editar({ params }: Params) {
     const url = `${base}/${pedido.ocasion}/${pedido.slug}`;
     return (
       <main className="mx-auto max-w-xl px-5 py-12 text-center">
+        <div className="mb-8">
+          <PasosCompra actual={4} />
+        </div>
         <h1 className="text-3xl font-semibold tracking-tight text-stone-900">Tu regalo ya está listo</h1>
         <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-stone-600">
           Te enviamos el QR y el enlace a <strong className="font-medium text-stone-800">{correo}</strong>.
@@ -107,9 +111,18 @@ export default async function Editar({ params }: Params) {
   const rutas: string[] = Array.isArray(pedido.fotos) ? pedido.fotos : [];
   const firmadas = await firmarRutas(rutas);
   const previews = Object.fromEntries(rutas.map((r, i) => [r, firmadas[i]]).filter(([, u]) => u));
+  // La foto de cierre y la voz tambien necesitan URL firmada para verse/oirse aqui.
+  if (pedido.foto_final && !previews[pedido.foto_final]) {
+    const u = await firmarRuta(pedido.foto_final);
+    if (u) previews[pedido.foto_final] = u;
+  }
+  const vozPreview = pedido.voz_url?.startsWith('pedidos/') ? await firmarRuta(pedido.voz_url) : null;
 
   return (
     <main className="mx-auto max-w-xl px-5 py-10">
+      <div className="mb-8">
+        <PasosCompra actual={2} />
+      </div>
       <h1 className="text-2xl font-semibold tracking-tight text-stone-900">Escribe tu dedicatoria</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-stone-600">
         Se guarda sola al avanzar. Te enviamos este enlace a{' '}
@@ -119,6 +132,9 @@ export default async function Editar({ params }: Params) {
       <FormularioGuiado
         acceso={acceso}
         config={configFormulario(tema.id, pedido.ocasion)}
+        tema={tema.id}
+        ocasion={pedido.ocasion}
+        vozPreview={vozPreview}
         maxChars={tema.maxChars}
         limites={limites}
         previews={previews}
@@ -135,6 +151,7 @@ export default async function Editar({ params }: Params) {
           // Nunca "sin musica" por omision: el regalo abre con una cancion
           // salvo que el comprador la quite a proposito.
           musica: pedido.musica ?? CANCIONES[0]?.id ?? null,
+          voz_url: pedido.voz_url ?? null,
         }}
       />
     </main>

@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CartaManuscrita from './CartaManuscrita';
 import CarruselTema from './Carruseles';
 import Celebracion from './Celebracion';
 import Compartir from './Compartir';
 import Visor from './Visor';
 import type { Tema } from '@/lib/temas';
+import { fechaCorta } from '@/lib/fechas';
 
 export interface DatosPedido {
   ocasion: string;
@@ -32,6 +33,11 @@ interface Props {
   /** URLs firmadas de la galeria. Vacio si la media ya se archivo. */
   fotos: string[];
   fotoFinal: string | null;
+  /**
+   * Vista previa del editor: sin boton de compartir. Compartiria la URL
+   * actual, que en el editor es el enlace SECRETO de edicion.
+   */
+  vistaPrevia?: boolean;
 }
 
 const FRASES = [
@@ -60,7 +66,7 @@ const BOTON_COMPARTIR = 'Compartir este momento';
  * despues de la carta rompia el momento. Vive donde corresponde: en
  * "Mis pedidos", que es del comprador.
  */
-export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: Props) {
+export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal, vistaPrevia = false }: Props) {
   const [toques, setToques] = useState(0);
   const [abierto, setAbierto] = useState(false);
   const [pop, setPop] = useState(false);
@@ -73,12 +79,66 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
   const nivel = Math.min(100, (toques / TOTAL) * 100);
 
   /**
-   * La musica arranca con el PRIMER toque del corazon, no al terminar:
-   * acompana la intro. Tiene que ser dentro de un gesto del usuario, porque
-   * los navegadores moviles bloquean el audio que empieza solo.
+   * La musica arranca al COMPLETAR los toques, cuando se abre el regalo.
+   * Se llama dentro del mismo toque (no en un setTimeout): los navegadores
+   * moviles solo dejan sonar audio que empieza en un gesto del usuario.
    */
   const audio = useRef<HTMLAudioElement | null>(null);
+  const voz = useRef<HTMLAudioElement | null>(null);
   const [silencio, setSilencio] = useState(false);
+  const [sonando, setSonando] = useState(false);
+
+  /**
+   * El sonido vive solo en esta pestana: si la persona cambia de app, de
+   * pestana o sale de la pagina, todo se pausa; al volver, la musica sigue
+   * donde iba (la voz no: se vuelve a tocar a mano). Al desmontar (p. ej.
+   * cerrar la vista previa del editor) se detiene del todo.
+   */
+  useEffect(() => {
+    const alCambiar = () => {
+      const a = audio.current;
+      if (document.hidden) {
+        a?.pause();
+        voz.current?.pause();
+      } else if (a && a.paused && !a.muted) {
+        a.play().catch(() => {});
+      }
+    };
+    const alSalir = () => {
+      audio.current?.pause();
+      voz.current?.pause();
+    };
+    document.addEventListener('visibilitychange', alCambiar);
+    window.addEventListener('pagehide', alSalir);
+    return () => {
+      document.removeEventListener('visibilitychange', alCambiar);
+      window.removeEventListener('pagehide', alSalir);
+      alSalir();
+    };
+  }, []);
+
+  /** La voz manda: mientras suena, la musica baja casi a cero. */
+  function tocarVoz() {
+    if (!pedido.voz_url) return;
+    if (voz.current && !voz.current.paused) {
+      voz.current.pause();
+      return;
+    }
+    const v = voz.current ?? new Audio(pedido.voz_url);
+    voz.current = v;
+    const musica = audio.current;
+    const restaurar = () => {
+      setSonando(false);
+      if (musica) musica.volume = 0.6;
+    };
+    v.onpause = restaurar;
+    v.onended = restaurar;
+    v.onplay = () => {
+      setSonando(true);
+      if (musica) musica.volume = 0.12;
+    };
+    v.play().catch(restaurar);
+  }
 
   function empezarMusica() {
     if (audio.current || !pedido.cancion_url) return;
@@ -110,12 +170,14 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
 
   function tocar() {
     if (abierto) return;
-    empezarMusica();
     const n = toques + 1;
     setToques(n);
     setPop(true);
     setTimeout(() => setPop(false), 130);
-    if (n >= TOTAL) setTimeout(() => setAbierto(true), 420);
+    if (n >= TOTAL) {
+      empezarMusica(); // dentro del ultimo toque: es el gesto que habilita el audio
+      setTimeout(() => setAbierto(true), 420);
+    }
   }
 
   function abrirSobre() {
@@ -128,7 +190,7 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
 
   return (
     <div className="stage" data-tema={tema.id}>
-      {pedido.cancion_url && toques > 0 && (
+      {pedido.cancion_url && abierto && (
         <button
           type="button"
           className="musica-btn"
@@ -159,7 +221,7 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
               <circle cx="30" cy="30" r="21" fill="none" stroke="currentColor" strokeWidth=".8" strokeDasharray="3 3" />
               <text x="30" y="26" textAnchor="middle" fontFamily="Georgia, serif" fontSize="7" fill="currentColor">LIMA</text>
               <text x="30" y="37" textAnchor="middle" fontFamily="Georgia, serif" fontSize="8.5" fill="currentColor">
-                {(pedido.fecha_texto ?? '').slice(0, 6) || '·'}
+                {fechaCorta(pedido.fecha_texto) || '·'}
               </text>
             </svg>
           </div>
@@ -223,8 +285,8 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
           {/* ---------------------------------- voz leyendo la carta */}
           {pedido.voz_url && (
             <div className="audio">
-              <button onClick={() => new Audio(pedido.voz_url!).play().catch(() => {})} aria-label="Escuchar la carta">
-                ▶
+              <button onClick={tocarVoz} aria-label={sonando ? 'Pausar la voz' : 'Escuchar la carta'}>
+                {sonando ? '❚❚' : '▶'}
               </button>
               <div className="et">
                 <b>Escúchalo en su voz</b>
@@ -254,14 +316,16 @@ export default function Experiencia({ pedido, tema, lineas, fotos, fotoFinal }: 
             <p className="gracias" dangerouslySetInnerHTML={{ __html: pedido.frase_final }} />
           )}
 
-          <Compartir
-            etiqueta={
-              !pedido.texto_boton || pedido.texto_boton === BOTON_VIEJO
-                ? BOTON_COMPARTIR
-                : pedido.texto_boton
-            }
-            titulo={pedido.pareja || pedido.destinatario}
-          />
+          {!vistaPrevia && (
+            <Compartir
+              etiqueta={
+                !pedido.texto_boton || pedido.texto_boton === BOTON_VIEJO
+                  ? BOTON_COMPARTIR
+                  : pedido.texto_boton
+              }
+              titulo={pedido.pareja || pedido.destinatario}
+            />
+          )}
 
           <p className="pie-final">Hecho con amor</p>
         </div>

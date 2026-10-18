@@ -68,6 +68,9 @@ export default async function Pagina({ params }: Params) {
   const rutas: string[] = Array.isArray(p.fotos) ? p.fotos : [];
   const fotos = await firmarRutas(rutas);
   const fotoFinal = await firmarRuta(p.foto_final);
+  // La voz grabada por el comprador vive en el bucket privado (ruta);
+  // una voz externa (URL completa) se usa tal cual.
+  const voz = p.voz_url?.startsWith('pedidos/') ? await firmarRuta(p.voz_url) : p.voz_url;
 
   const datos: DatosPedido = {
     ocasion: p.ocasion,
@@ -81,7 +84,7 @@ export default async function Pagina({ params }: Params) {
     frase_final: p.frase_final,
     emojis: p.emojis,
     texto_boton: p.texto_boton,
-    voz_url: p.voz_url,
+    voz_url: voz ?? null,
     // Una cancion propia (IA, a futuro) manda; si no, la elegida del catalogo.
     cancion_url: p.cancion_url ?? urlCancion(p.musica),
   };
